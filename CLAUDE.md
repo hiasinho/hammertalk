@@ -12,6 +12,8 @@
 
 Tests that modify env vars use `serial_test` to avoid race conditions.
 
+IMPORTANT: Always run the tests before committing.
+
 ## Architecture
 
 - Signal-based IPC: SIGUSR1 starts recording, SIGUSR2 stops and transcribes
