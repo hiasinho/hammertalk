@@ -1,8 +1,8 @@
-# Hammertalk
-
 <p align="center">
-  <img src="assets/ht1.png" alt="Hammertalk" width="400">
+  <img src="assets/ht1.png" alt="Hammertalk">
 </p>
+
+# Hammertalk
 
 Push-to-talk transcription daemon for Wayland (Sway, Hyprland, niri, COSMIC) using Moonshine.
 
