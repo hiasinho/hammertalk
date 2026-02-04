@@ -6,14 +6,14 @@ use std::time::Duration;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::SampleFormat;
 use log::{error, info, warn};
-use signal_hook::consts::{SIGUSR1, SIGUSR2, SIGTERM, SIGINT};
+use signal_hook::consts::{SIGINT, SIGTERM, SIGUSR1, SIGUSR2};
 use signal_hook::iterator::Signals;
-use transcribe_rs::engines::moonshine::{MoonshineEngine, MoonshineModelParams, ModelVariant};
+use transcribe_rs::engines::moonshine::{ModelVariant, MoonshineEngine, MoonshineModelParams};
 use transcribe_rs::TranscriptionEngine;
 
 use hammertalk::{
-    get_model_path, remove_pid_file, type_text, write_pid_file,
-    needs_resample, fatal_exit, SAMPLE_RATE, BUFFER_DRAIN_DELAY_MS,
+    fatal_exit, get_model_path, needs_resample, remove_pid_file, type_text, write_pid_file,
+    BUFFER_DRAIN_DELAY_MS, SAMPLE_RATE,
 };
 
 static RECORDING: AtomicBool = AtomicBool::new(false);
@@ -42,21 +42,17 @@ fn record_audio(buffer: Arc<Mutex<Vec<f32>>>) -> Result<cpal::Stream, Box<dyn st
         })
         .ok_or("No suitable audio config")?;
 
-    let sample_rate = if SAMPLE_RATE >= config.min_sample_rate().0
-        && SAMPLE_RATE <= config.max_sample_rate().0
-    {
-        SAMPLE_RATE
-    } else {
-        config.max_sample_rate().0
-    };
+    let sample_rate =
+        if SAMPLE_RATE >= config.min_sample_rate().0 && SAMPLE_RATE <= config.max_sample_rate().0 {
+            SAMPLE_RATE
+        } else {
+            config.max_sample_rate().0
+        };
 
     let config = config.with_sample_rate(cpal::SampleRate(sample_rate));
     let channels = config.channels() as usize;
 
-    info!(
-        "Recording at {} Hz, {} channels",
-        sample_rate, channels
-    );
+    info!("Recording at {} Hz, {} channels", sample_rate, channels);
 
     let resample_ratio = sample_rate as f32 / SAMPLE_RATE as f32;
     let should_resample = needs_resample(sample_rate, SAMPLE_RATE);
@@ -75,8 +71,11 @@ fn record_audio(buffer: Arc<Mutex<Vec<f32>>>) -> Result<cpal::Stream, Box<dyn st
                         // Nearest-neighbor resampling: only push sample when we've moved
                         // to a new target index, effectively decimating higher sample rates
                         let target_idx = (i as f32 / resample_ratio) as usize;
-                        let prev_target_idx = ((i.saturating_sub(1)) as f32 / resample_ratio) as usize;
-                        let is_new_target = target_idx >= buf.len() || buf.is_empty() || target_idx != prev_target_idx;
+                        let prev_target_idx =
+                            ((i.saturating_sub(1)) as f32 / resample_ratio) as usize;
+                        let is_new_target = target_idx >= buf.len()
+                            || buf.is_empty()
+                            || target_idx != prev_target_idx;
                         if is_new_target {
                             buf.push(sample);
                         }
@@ -164,9 +163,11 @@ fn main() {
                         continue;
                     }
 
-                    info!("Transcribing {} samples ({:.2}s)...",
-                          samples.len(),
-                          samples.len() as f32 / SAMPLE_RATE as f32);
+                    info!(
+                        "Transcribing {} samples ({:.2}s)...",
+                        samples.len(),
+                        samples.len() as f32 / SAMPLE_RATE as f32
+                    );
 
                     match engine.transcribe_samples(samples, None) {
                         Ok(result) => {

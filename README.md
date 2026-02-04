@@ -88,7 +88,6 @@ cargo build --release
 ## Testing
 
 ```bash
-cargo test
+cargo test          # run tests
+./check.sh          # run all checks (format, clippy, tests, audit)
 ```
-
-11 unit tests cover path resolution, PID file management, text validation, and resample detection.
