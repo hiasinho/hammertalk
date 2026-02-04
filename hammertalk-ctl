@@ -1,0 +1,33 @@
+#!/bin/bash
+# hammertalk-ctl - Control script for hammertalk daemon
+
+PID_FILE="${XDG_RUNTIME_DIR:-/tmp}/hammertalk.pid"
+
+if [[ ! -f "$PID_FILE" ]]; then
+    echo "hammertalk not running (no PID file at $PID_FILE)" >&2
+    exit 1
+fi
+
+PID=$(cat "$PID_FILE" 2>/dev/null)
+
+if [[ -z "$PID" ]] || ! kill -0 "$PID" 2>/dev/null; then
+    echo "hammertalk not running (stale PID file)" >&2
+    rm -f "$PID_FILE"
+    exit 1
+fi
+
+case "$1" in
+    start)
+        kill -USR1 "$PID"
+        ;;
+    stop)
+        kill -USR2 "$PID"
+        ;;
+    status)
+        echo "hammertalk running (PID $PID)"
+        ;;
+    *)
+        echo "Usage: hammertalk-ctl start|stop|status" >&2
+        exit 1
+        ;;
+esac

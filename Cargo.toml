@@ -1,0 +1,21 @@
+[package]
+name = "hammertalk"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+transcribe-rs = { version = "0.2.2", features = ["moonshine"] }
+cpal = "0.15"
+signal-hook = "0.3"
+hound = "3.5"
+log = "0.4"
+env_logger = "0.11"
+dirs = "6"
+
+# Pin ort to match transcribe-rs requirements
+ort = "=2.0.0-rc.10"
+ndarray = "=0.16.1"
+
+[profile.release]
+lto = true
+codegen-units = 1
