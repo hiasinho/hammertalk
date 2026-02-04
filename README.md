@@ -35,6 +35,14 @@ cd hammertalk
 ./install.sh          # Build and install
 ```
 
+## Update
+
+Re-run the quick install script to update to the latest version:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hiasinho/hammertalk/master/install-remote.sh | sh
+```
+
 ## Usage
 
 ### Systemd (recommended)
