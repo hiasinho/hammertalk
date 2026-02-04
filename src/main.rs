@@ -1,7 +1,3 @@
-use std::fs;
-use std::io::Write;
-use std::path::PathBuf;
-use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -9,68 +5,20 @@ use std::time::Duration;
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::SampleFormat;
-use log::{debug, error, info, warn};
+use log::{error, info, warn};
 use signal_hook::consts::{SIGUSR1, SIGUSR2, SIGTERM, SIGINT};
 use signal_hook::iterator::Signals;
 use transcribe_rs::engines::moonshine::{MoonshineEngine, MoonshineModelParams, ModelVariant};
 use transcribe_rs::TranscriptionEngine;
 
+use hammertalk::{
+    get_model_path, remove_pid_file, type_text, write_pid_file,
+    needs_resample, SAMPLE_RATE,
+};
+
 static RECORDING: AtomicBool = AtomicBool::new(false);
 static STOP_REQUESTED: AtomicBool = AtomicBool::new(false);
 static SHUTDOWN: AtomicBool = AtomicBool::new(false);
-
-const SAMPLE_RATE: u32 = 16000;
-
-fn get_pid_path() -> PathBuf {
-    std::env::var("XDG_RUNTIME_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("/tmp"))
-        .join("hammertalk.pid")
-}
-
-fn get_model_path() -> PathBuf {
-    std::env::var("XDG_DATA_HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| {
-            dirs::home_dir()
-                .unwrap_or_else(|| PathBuf::from("."))
-                .join(".local/share")
-        })
-        .join("hammertalk/models/moonshine-tiny")
-}
-
-fn write_pid_file() -> std::io::Result<()> {
-    let pid_path = get_pid_path();
-    let mut file = fs::File::create(&pid_path)?;
-    writeln!(file, "{}", std::process::id())?;
-    info!("PID file written to {:?}", pid_path);
-    Ok(())
-}
-
-fn remove_pid_file() {
-    let pid_path = get_pid_path();
-    if let Err(e) = fs::remove_file(&pid_path) {
-        warn!("Failed to remove PID file: {}", e);
-    }
-}
-
-fn type_text(text: &str) {
-    if text.trim().is_empty() {
-        warn!("Empty transcription, skipping");
-        return;
-    }
-
-    info!("Typing: {}", text);
-    let result = Command::new("ydotool")
-        .args(["type", "--", text])
-        .status();
-
-    match result {
-        Ok(status) if status.success() => debug!("ydotool succeeded"),
-        Ok(status) => warn!("ydotool exited with: {}", status),
-        Err(e) => error!("Failed to run ydotool: {}", e),
-    }
-}
 
 fn record_audio(buffer: Arc<Mutex<Vec<f32>>>) -> Result<cpal::Stream, Box<dyn std::error::Error>> {
     let host = cpal::default_host();
@@ -113,7 +61,7 @@ fn record_audio(buffer: Arc<Mutex<Vec<f32>>>) -> Result<cpal::Stream, Box<dyn st
     );
 
     let resample_ratio = sample_rate as f32 / SAMPLE_RATE as f32;
-    let needs_resample = (resample_ratio - 1.0).abs() > 0.001;
+    let should_resample = needs_resample(sample_rate, SAMPLE_RATE);
 
     let stream = device.build_input_stream(
         &config.into(),
@@ -125,7 +73,7 @@ fn record_audio(buffer: Arc<Mutex<Vec<f32>>>) -> Result<cpal::Stream, Box<dyn st
                 for (i, chunk) in data.chunks(channels).enumerate() {
                     let sample: f32 = chunk.iter().sum::<f32>() / channels as f32;
 
-                    if needs_resample {
+                    if should_resample {
                         // Simple nearest-neighbor resampling
                         let target_idx = (i as f32 / resample_ratio) as usize;
                         if target_idx >= buf.len() || buf.is_empty() || target_idx != ((i.saturating_sub(1)) as f32 / resample_ratio) as usize {
