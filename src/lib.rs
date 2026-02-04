@@ -57,7 +57,9 @@ pub fn type_text(text: &str) {
     }
 
     info!("Typing: {}", text);
-    let result = Command::new("ydotool").args(["type", "--", text]).status();
+    let result = Command::new("ydotool")
+        .args(["type", "-d", "0", "-H", "0", "--", text])
+        .status();
 
     match result {
         Ok(status) if status.success() => debug!("ydotool succeeded"),
