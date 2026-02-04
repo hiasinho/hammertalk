@@ -98,6 +98,13 @@ info "Building release binary (this may take a few minutes)..."
 cargo build --release
 success "Build complete"
 
+# Stop service if running (binary may be locked)
+if systemctl --user is-active --quiet hammertalk 2>/dev/null; then
+    info "Stopping running service..."
+    systemctl --user stop hammertalk
+    RESTART_SERVICE=1
+fi
+
 # Install binaries
 info "Installing to $INSTALL_DIR..."
 mkdir -p "$INSTALL_DIR"
@@ -133,6 +140,13 @@ if [[ ! -f "tokenizer.json" ]]; then
     curl -fL "$TOKENIZER_URL" -o "tokenizer.json"
 fi
 success "Model downloaded"
+
+# Restart service if it was running
+if [[ "${RESTART_SERVICE:-}" == "1" ]]; then
+    info "Restarting service..."
+    systemctl --user start hammertalk
+    success "Service restarted"
+fi
 
 # Verify ydotoold is running
 if has ydotool; then

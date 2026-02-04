@@ -11,6 +11,13 @@ echo "Building release binary..."
 cd "$SCRIPT_DIR"
 cargo build --release
 
+# Stop service if running (binary may be locked)
+if systemctl --user is-active --quiet hammertalk 2>/dev/null; then
+    echo "Stopping running service..."
+    systemctl --user stop hammertalk
+    RESTART_SERVICE=1
+fi
+
 echo "Installing binary to $BIN_DIR..."
 mkdir -p "$BIN_DIR"
 cp target/release/hammertalk "$BIN_DIR/"
@@ -25,6 +32,12 @@ echo "Installing git hooks..."
 if [[ -d "$SCRIPT_DIR/.git" ]]; then
     cp "$SCRIPT_DIR/hooks/pre-commit" "$SCRIPT_DIR/.git/hooks/pre-commit"
     chmod +x "$SCRIPT_DIR/.git/hooks/pre-commit"
+fi
+
+# Restart service if it was running
+if [[ "${RESTART_SERVICE:-}" == "1" ]]; then
+    echo "Restarting service..."
+    systemctl --user start hammertalk
 fi
 
 echo ""
