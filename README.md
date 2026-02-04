@@ -10,6 +10,18 @@ curl -fsSL https://raw.githubusercontent.com/hiasinho/hammertalk/master/install-
 
 This installs Rust (if needed), builds from source, downloads the model, and sets up the systemd service.
 
+## Arch Linux (AUR)
+
+```bash
+yay -S hammertalk-bin    # pre-built binary
+yay -S hammertalk-git    # build from source
+```
+
+After installing, download the model:
+```bash
+/usr/share/hammertalk/download-model.sh
+```
+
 ## Manual Install
 
 ```bash
