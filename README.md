@@ -62,3 +62,11 @@ journalctl --user -u hammertalk -f
 ```bash
 cargo build --release
 ```
+
+## Testing
+
+```bash
+cargo test
+```
+
+31 unit tests cover path resolution, audio processing (mono conversion, resampling), and PID file management.

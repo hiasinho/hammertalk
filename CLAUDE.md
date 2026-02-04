@@ -11,10 +11,25 @@ Push-to-talk transcription daemon using Moonshine ONNX models.
 
 ## Key Files
 
-- `src/main.rs` - daemon (~230 lines)
+- `src/main.rs` - daemon entry point, signal handling, audio stream
+- `src/lib.rs` - testable library (path resolution, audio processing, PID management)
 - `hammertalk-ctl` - shell script sends signals to daemon
 - `hammertalk.service` - systemd user service
 - `download-model.sh` - fetches Moonshine ONNX model
+
+## Testing
+
+```bash
+cargo test
+```
+
+31 unit tests in `src/lib.rs` cover:
+- Path resolution (XDG env vars, fallbacks)
+- Audio processing (mono conversion, resampling at 44.1/48kHz → 16kHz)
+- PID file management
+- Edge cases and boundary conditions
+
+Tests that modify env vars use `serial_test` to avoid race conditions.
 
 ## Dependencies
 
