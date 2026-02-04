@@ -21,6 +21,12 @@ mkdir -p "$SERVICE_DIR"
 cp hammertalk.service "$SERVICE_DIR/"
 systemctl --user daemon-reload
 
+echo "Installing git hooks..."
+if [[ -d "$SCRIPT_DIR/.git" ]]; then
+    cp "$SCRIPT_DIR/hooks/pre-commit" "$SCRIPT_DIR/.git/hooks/pre-commit"
+    chmod +x "$SCRIPT_DIR/.git/hooks/pre-commit"
+fi
+
 echo ""
 echo "Installation complete!"
 echo ""

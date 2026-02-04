@@ -9,7 +9,6 @@
 - **Lint**: `cargo clippy -- -D warnings`
 - **Format**: `cargo fmt --check` (fix with `cargo fmt`)
 - **Audit**: `cargo audit` (requires `cargo install cargo-audit`)
-- **All**: `./check.sh`
 
 Tests that modify env vars use `serial_test` to avoid race conditions.
 

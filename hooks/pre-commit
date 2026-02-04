@@ -1,0 +1,21 @@
+#!/bin/bash
+# Pre-commit hook: format + lint checks
+
+RED='\033[0;31m'
+NC='\033[0m'
+
+echo "Running pre-commit checks..."
+
+# Format check
+if ! cargo fmt --check --quiet 2>/dev/null; then
+    echo -e "${RED}Format check failed.${NC} Run 'cargo fmt' to fix."
+    exit 1
+fi
+
+# Clippy
+if ! cargo clippy --quiet -- -D warnings 2>/dev/null; then
+    echo -e "${RED}Clippy found issues.${NC}"
+    exit 1
+fi
+
+echo "Pre-commit checks passed."
