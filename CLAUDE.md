@@ -1,7 +1,3 @@
-# Hammertalk
-
-Push-to-talk transcription daemon using Moonshine ONNX models.
-
 ## Build & Run
 
 - **Build**: `cargo build --release`
