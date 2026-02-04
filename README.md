@@ -2,14 +2,21 @@
 
 Push-to-talk transcription daemon for Sway using Moonshine.
 
-## Install
+## Quick Install
 
 ```bash
-# Download model (~106MB)
-./download-model.sh
+curl -fsSL https://raw.githubusercontent.com/hiasinho/hammertalk/main/install-remote.sh | sh
+```
 
-# Build and install
-./install.sh
+This installs Rust (if needed), builds from source, downloads the model, and sets up the systemd service.
+
+## Manual Install
+
+```bash
+git clone https://github.com/hiasinho/hammertalk
+cd hammertalk
+./download-model.sh   # Download model (~106MB)
+./install.sh          # Build and install
 ```
 
 ## Usage
