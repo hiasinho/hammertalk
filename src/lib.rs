@@ -56,9 +56,10 @@ pub fn type_text(text: &str) {
         return;
     }
 
-    info!("Typing: {}", text);
+    let text_with_space = format!("{} ", text);
+    info!("Typing: {}", text_with_space);
     let result = Command::new("ydotool")
-        .args(["type", "-d", "0", "-H", "0", "--", text])
+        .args(["type", "-d", "0", "-H", "0", "--", &text_with_space])
         .status();
 
     match result {
