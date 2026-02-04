@@ -5,7 +5,7 @@ Push-to-talk transcription daemon for Wayland (Sway, Hyprland, niri, COSMIC) usi
 ## Quick Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/hiasinho/hammertalk/main/install-remote.sh | sh
+curl -fsSL https://raw.githubusercontent.com/hiasinho/hammertalk/master/install-remote.sh | sh
 ```
 
 This installs Rust (if needed), builds from source, downloads the model, and sets up the systemd service.

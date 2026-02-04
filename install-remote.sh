@@ -1,6 +1,6 @@
 #!/bin/bash
 # Hammertalk remote installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/USER/hammertalk/main/install-remote.sh | sh
+# Usage: curl -fsSL https://raw.githubusercontent.com/hiasinho/hammertalk/master/install-remote.sh | sh
 #
 # This script:
 # 1. Checks for required dependencies
