@@ -4,6 +4,8 @@
 
 # Hammertalk
 
+[![CI](https://github.com/hiasinho/hammertalk/actions/workflows/ci.yml/badge.svg)](https://github.com/hiasinho/hammertalk/actions/workflows/ci.yml)
+
 Push-to-talk transcription daemon for Wayland (Sway, Hyprland, niri, COSMIC) using Moonshine.
 
 ## Quick Install
