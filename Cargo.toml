@@ -7,7 +7,6 @@ edition = "2021"
 transcribe-rs = { version = "0.2.2", features = ["moonshine"] }
 cpal = "0.15"
 signal-hook = "0.3"
-hound = "3.5"
 log = "0.4"
 env_logger = "0.11"
 dirs = "6"

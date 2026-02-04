@@ -13,12 +13,10 @@ use transcribe_rs::TranscriptionEngine;
 
 use hammertalk::{
     get_model_path, remove_pid_file, type_text, write_pid_file,
-    needs_resample, SAMPLE_RATE,
+    needs_resample, fatal_exit, SAMPLE_RATE, BUFFER_DRAIN_DELAY_MS,
 };
 
 static RECORDING: AtomicBool = AtomicBool::new(false);
-static STOP_REQUESTED: AtomicBool = AtomicBool::new(false);
-static SHUTDOWN: AtomicBool = AtomicBool::new(false);
 
 fn record_audio(buffer: Arc<Mutex<Vec<f32>>>) -> Result<cpal::Stream, Box<dyn std::error::Error>> {
     let host = cpal::default_host();
@@ -74,9 +72,12 @@ fn record_audio(buffer: Arc<Mutex<Vec<f32>>>) -> Result<cpal::Stream, Box<dyn st
                     let sample: f32 = chunk.iter().sum::<f32>() / channels as f32;
 
                     if should_resample {
-                        // Simple nearest-neighbor resampling
+                        // Nearest-neighbor resampling: only push sample when we've moved
+                        // to a new target index, effectively decimating higher sample rates
                         let target_idx = (i as f32 / resample_ratio) as usize;
-                        if target_idx >= buf.len() || buf.is_empty() || target_idx != ((i.saturating_sub(1)) as f32 / resample_ratio) as usize {
+                        let prev_target_idx = ((i.saturating_sub(1)) as f32 / resample_ratio) as usize;
+                        let is_new_target = target_idx >= buf.len() || buf.is_empty() || target_idx != prev_target_idx;
+                        if is_new_target {
                             buf.push(sample);
                         }
                     } else {
@@ -101,8 +102,7 @@ fn main() {
 
     // Write PID file
     if let Err(e) = write_pid_file() {
-        error!("Failed to write PID file: {}", e);
-        std::process::exit(1);
+        fatal_exit(&format!("Failed to write PID file: {}", e));
     }
 
     // Load model
@@ -114,9 +114,7 @@ fn main() {
         &model_path,
         MoonshineModelParams::variant(ModelVariant::Tiny),
     ) {
-        error!("Failed to load model: {}", e);
-        remove_pid_file();
-        std::process::exit(1);
+        fatal_exit(&format!("Failed to load model: {}", e));
     }
     info!("Model loaded successfully");
 
@@ -126,18 +124,12 @@ fn main() {
     // Set up audio stream
     let stream = match record_audio(Arc::clone(&audio_buffer)) {
         Ok(s) => s,
-        Err(e) => {
-            error!("Failed to set up audio: {}", e);
-            remove_pid_file();
-            std::process::exit(1);
-        }
+        Err(e) => fatal_exit(&format!("Failed to set up audio: {}", e)),
     };
 
     // Start the stream (it will only record when RECORDING is true)
     if let Err(e) = stream.play() {
-        error!("Failed to start audio stream: {}", e);
-        remove_pid_file();
-        std::process::exit(1);
+        fatal_exit(&format!("Failed to start audio stream: {}", e));
     }
 
     // Set up signal handlers
@@ -151,7 +143,6 @@ fn main() {
                 if !RECORDING.load(Ordering::SeqCst) {
                     info!("Starting recording...");
                     audio_buffer.lock().unwrap().clear();
-                    STOP_REQUESTED.store(false, Ordering::SeqCst);
                     RECORDING.store(true, Ordering::SeqCst);
                 }
             }
@@ -159,10 +150,9 @@ fn main() {
                 if RECORDING.load(Ordering::SeqCst) {
                     info!("Stopping recording...");
                     RECORDING.store(false, Ordering::SeqCst);
-                    STOP_REQUESTED.store(true, Ordering::SeqCst);
 
                     // Small delay to ensure buffer is complete
-                    thread::sleep(Duration::from_millis(50));
+                    thread::sleep(Duration::from_millis(BUFFER_DRAIN_DELAY_MS));
 
                     let samples = {
                         let buf = audio_buffer.lock().unwrap();
@@ -181,12 +171,8 @@ fn main() {
                     match engine.transcribe_samples(samples, None) {
                         Ok(result) => {
                             let text = result.text.trim();
-                            if !text.is_empty() {
-                                info!("Transcription: {}", text);
-                                type_text(text);
-                            } else {
-                                warn!("Empty transcription result");
-                            }
+                            info!("Transcription: {}", text);
+                            type_text(text);
                         }
                         Err(e) => error!("Transcription failed: {}", e),
                     }
@@ -194,7 +180,6 @@ fn main() {
             }
             SIGTERM | SIGINT => {
                 info!("Shutting down...");
-                SHUTDOWN.store(true, Ordering::SeqCst);
                 break;
             }
             _ => {}

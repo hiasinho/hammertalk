@@ -7,6 +7,12 @@ use log::{debug, error, info, warn};
 
 pub const SAMPLE_RATE: u32 = 16000;
 
+/// Tolerance for determining if resampling is needed (0.1% deviation from target)
+pub const RESAMPLE_TOLERANCE: f32 = 0.001;
+
+/// Delay in milliseconds to allow audio buffer to drain before transcription
+pub const BUFFER_DRAIN_DELAY_MS: u64 = 50;
+
 pub fn get_pid_path() -> PathBuf {
     std::env::var("XDG_RUNTIME_DIR")
         .map(PathBuf::from)
@@ -64,7 +70,14 @@ pub fn type_text(text: &str) {
 
 pub fn needs_resample(source_rate: u32, target_rate: u32) -> bool {
     let ratio = source_rate as f32 / target_rate as f32;
-    (ratio - 1.0).abs() > 0.001
+    (ratio - 1.0).abs() > RESAMPLE_TOLERANCE
+}
+
+/// Exit with error after cleanup. Used for fatal initialization failures.
+pub fn fatal_exit(msg: &str) -> ! {
+    log::error!("{}", msg);
+    remove_pid_file();
+    std::process::exit(1);
 }
 
 #[cfg(test)]
@@ -188,5 +201,15 @@ mod tests {
     #[test]
     fn test_sample_rate_constant() {
         assert_eq!(SAMPLE_RATE, 16000);
+    }
+
+    #[test]
+    fn test_resample_tolerance_constant() {
+        assert_eq!(RESAMPLE_TOLERANCE, 0.001);
+    }
+
+    #[test]
+    fn test_buffer_drain_delay_constant() {
+        assert_eq!(BUFFER_DRAIN_DELAY_MS, 50);
     }
 }
