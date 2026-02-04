@@ -69,4 +69,4 @@ cargo build --release
 cargo test
 ```
 
-31 unit tests cover path resolution, audio processing (mono conversion, resampling), and PID file management.
+11 unit tests cover path resolution, PID file management, text validation, and resample detection.
