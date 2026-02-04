@@ -1,5 +1,5 @@
 [Unit]
-Description=Push-to-talk transcription daemon
+Description=Push-to-talk transcription daemon for Wayland
 After=pipewire.service
 
 [Service]
