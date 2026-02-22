@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/hiasinho/hammertalk/actions/workflows/ci.yml/badge.svg)](https://github.com/hiasinho/hammertalk/actions/workflows/ci.yml)
 
-Push-to-talk transcription daemon for Wayland (Sway, Hyprland, niri, COSMIC) using Moonshine.
+Push-to-talk transcription daemon for Wayland (Sway, Hyprland, niri, COSMIC) with multiple engine support.
 
 ## Quick Install
 
@@ -44,6 +44,38 @@ Re-run the quick install script to update to the latest version:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/hiasinho/hammertalk/master/install-remote.sh | sh
 ```
+
+## Engines
+
+Hammertalk supports multiple transcription engines:
+
+| Engine | Model Size | Notes |
+|--------|-----------|-------|
+| `moonshine-tiny` | ~106MB | Default. Fast, good accuracy. |
+| `whisper-tiny` | ~75MB | Smaller model, decent accuracy. |
+| `whisper-base` | ~148MB | Better accuracy than tiny. |
+
+Select an engine via CLI flag, environment variable, or config file (in priority order):
+
+```bash
+hammertalk --engine whisper-tiny
+# or
+HAMMERTALK_ENGINE=whisper-base hammertalk
+```
+
+Or set it persistently in `~/.config/hammertalk/config.toml`:
+
+```toml
+engine = "whisper-tiny"
+```
+
+Download the model for your chosen engine:
+
+```bash
+./download-model.sh whisper-tiny    # or whisper-base, moonshine-tiny, all
+```
+
+For systemd, uncomment and set `HAMMERTALK_ENGINE` in the service file.
 
 ## Usage
 

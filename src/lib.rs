@@ -1,9 +1,14 @@
+use std::fmt;
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
+use std::str::FromStr;
 
 use log::{debug, error, info, warn};
+use serde::Deserialize;
+
+pub mod engine;
 
 pub const SAMPLE_RATE: u32 = 16000;
 
@@ -13,6 +18,98 @@ pub const RESAMPLE_TOLERANCE: f32 = 0.001;
 /// Delay in milliseconds to allow audio buffer to drain before transcription
 pub const BUFFER_DRAIN_DELAY_MS: u64 = 50;
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum EngineChoice {
+    MoonshineTiny,
+    WhisperTiny,
+    WhisperBase,
+}
+
+impl FromStr for EngineChoice {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "moonshine-tiny" | "moonshine_tiny" => Ok(EngineChoice::MoonshineTiny),
+            "whisper-tiny" | "whisper_tiny" => Ok(EngineChoice::WhisperTiny),
+            "whisper-base" | "whisper_base" => Ok(EngineChoice::WhisperBase),
+            _ => Err(format!("unknown engine: {}", s)),
+        }
+    }
+}
+
+impl fmt::Display for EngineChoice {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            EngineChoice::MoonshineTiny => write!(f, "moonshine-tiny"),
+            EngineChoice::WhisperTiny => write!(f, "whisper-tiny"),
+            EngineChoice::WhisperBase => write!(f, "whisper-base"),
+        }
+    }
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct Config {
+    pub engine: Option<String>,
+}
+
+pub fn get_config_path() -> PathBuf {
+    std::env::var("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| {
+            dirs::home_dir()
+                .unwrap_or_else(|| PathBuf::from("."))
+                .join(".config")
+        })
+        .join("hammertalk/config.toml")
+}
+
+pub fn load_config() -> Config {
+    let path = get_config_path();
+    match fs::read_to_string(&path) {
+        Ok(contents) => match toml::from_str(&contents) {
+            Ok(config) => config,
+            Err(e) => {
+                warn!("Failed to parse config file {:?}: {}", path, e);
+                Config::default()
+            }
+        },
+        Err(_) => Config::default(),
+    }
+}
+
+pub fn parse_engine_choice() -> EngineChoice {
+    // Check CLI args: --engine <name>
+    let args: Vec<String> = std::env::args().collect();
+    if let Some(pos) = args.iter().position(|a| a == "--engine") {
+        if let Some(name) = args.get(pos + 1) {
+            match name.parse() {
+                Ok(choice) => return choice,
+                Err(_) => warn!("Unknown engine '{}', using default", name),
+            }
+        }
+    }
+
+    // Fall back to env var
+    if let Ok(val) = std::env::var("HAMMERTALK_ENGINE") {
+        match val.parse() {
+            Ok(choice) => return choice,
+            Err(_) => warn!("Unknown HAMMERTALK_ENGINE '{}', using default", val),
+        }
+    }
+
+    // Fall back to config file
+    let config = load_config();
+    if let Some(engine) = config.engine {
+        match engine.parse() {
+            Ok(choice) => return choice,
+            Err(_) => warn!("Unknown engine '{}' in config file, using default", engine),
+        }
+    }
+
+    EngineChoice::MoonshineTiny
+}
+
 pub fn get_pid_path() -> PathBuf {
     std::env::var("XDG_RUNTIME_DIR")
         .map(PathBuf::from)
@@ -20,15 +117,21 @@ pub fn get_pid_path() -> PathBuf {
         .join("hammertalk.pid")
 }
 
-pub fn get_model_path() -> PathBuf {
-    std::env::var("XDG_DATA_HOME")
+pub fn get_model_path(engine: &EngineChoice) -> PathBuf {
+    let base = std::env::var("XDG_DATA_HOME")
         .map(PathBuf::from)
         .unwrap_or_else(|_| {
             dirs::home_dir()
                 .unwrap_or_else(|| PathBuf::from("."))
                 .join(".local/share")
         })
-        .join("hammertalk/models/moonshine-tiny")
+        .join("hammertalk/models");
+
+    match engine {
+        EngineChoice::MoonshineTiny => base.join("moonshine-tiny"),
+        EngineChoice::WhisperTiny => base.join("ggml-tiny.en.bin"),
+        EngineChoice::WhisperBase => base.join("ggml-base.en.bin"),
+    }
 }
 
 pub fn write_pid_file() -> std::io::Result<()> {
@@ -116,7 +219,7 @@ mod tests {
         let temp = tempdir().unwrap();
         env::set_var("XDG_DATA_HOME", temp.path());
 
-        let model_path = get_model_path();
+        let model_path = get_model_path(&EngineChoice::MoonshineTiny);
 
         assert_eq!(
             model_path,
@@ -130,12 +233,116 @@ mod tests {
     fn test_get_model_path_fallback() {
         env::remove_var("XDG_DATA_HOME");
 
-        let model_path = get_model_path();
+        let model_path = get_model_path(&EngineChoice::MoonshineTiny);
 
         let expected = dirs::home_dir()
             .unwrap_or_else(|| PathBuf::from("."))
             .join(".local/share/hammertalk/models/moonshine-tiny");
         assert_eq!(model_path, expected);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_model_path_whisper_tiny() {
+        let temp = tempdir().unwrap();
+        env::set_var("XDG_DATA_HOME", temp.path());
+
+        let model_path = get_model_path(&EngineChoice::WhisperTiny);
+
+        assert_eq!(
+            model_path,
+            temp.path().join("hammertalk/models/ggml-tiny.en.bin")
+        );
+        env::remove_var("XDG_DATA_HOME");
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_model_path_whisper_base() {
+        let temp = tempdir().unwrap();
+        env::set_var("XDG_DATA_HOME", temp.path());
+
+        let model_path = get_model_path(&EngineChoice::WhisperBase);
+
+        assert_eq!(
+            model_path,
+            temp.path().join("hammertalk/models/ggml-base.en.bin")
+        );
+        env::remove_var("XDG_DATA_HOME");
+    }
+
+    #[test]
+    fn test_engine_choice_from_str() {
+        assert_eq!(
+            "moonshine-tiny".parse::<EngineChoice>().unwrap(),
+            EngineChoice::MoonshineTiny
+        );
+        assert_eq!(
+            "moonshine_tiny".parse::<EngineChoice>().unwrap(),
+            EngineChoice::MoonshineTiny
+        );
+        assert_eq!(
+            "whisper-tiny".parse::<EngineChoice>().unwrap(),
+            EngineChoice::WhisperTiny
+        );
+        assert_eq!(
+            "whisper_tiny".parse::<EngineChoice>().unwrap(),
+            EngineChoice::WhisperTiny
+        );
+        assert_eq!(
+            "whisper-base".parse::<EngineChoice>().unwrap(),
+            EngineChoice::WhisperBase
+        );
+        assert_eq!(
+            "whisper_base".parse::<EngineChoice>().unwrap(),
+            EngineChoice::WhisperBase
+        );
+        assert!("unknown".parse::<EngineChoice>().is_err());
+    }
+
+    #[test]
+    fn test_engine_choice_display() {
+        assert_eq!(EngineChoice::MoonshineTiny.to_string(), "moonshine-tiny");
+        assert_eq!(EngineChoice::WhisperTiny.to_string(), "whisper-tiny");
+        assert_eq!(EngineChoice::WhisperBase.to_string(), "whisper-base");
+    }
+
+    #[test]
+    fn test_engine_choice_case_insensitive() {
+        assert_eq!(
+            "Whisper-Tiny".parse::<EngineChoice>().unwrap(),
+            EngineChoice::WhisperTiny
+        );
+        assert_eq!(
+            "MOONSHINE-TINY".parse::<EngineChoice>().unwrap(),
+            EngineChoice::MoonshineTiny
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_parse_engine_choice_default() {
+        env::remove_var("HAMMERTALK_ENGINE");
+        let choice = parse_engine_choice();
+        assert_eq!(choice, EngineChoice::MoonshineTiny);
+    }
+
+    #[test]
+    #[serial]
+    fn test_parse_engine_choice_env_var() {
+        env::set_var("HAMMERTALK_ENGINE", "whisper-base");
+        let choice = parse_engine_choice();
+        assert_eq!(choice, EngineChoice::WhisperBase);
+        env::remove_var("HAMMERTALK_ENGINE");
+    }
+
+    #[test]
+    #[serial]
+    fn test_parse_engine_choice_invalid_env_var() {
+        env::set_var("HAMMERTALK_ENGINE", "invalid-engine");
+        let choice = parse_engine_choice();
+        assert_eq!(choice, EngineChoice::MoonshineTiny);
+        env::remove_var("HAMMERTALK_ENGINE");
     }
 
     #[test]
@@ -182,6 +389,97 @@ mod tests {
         assert!(!should_type_text(""));
         assert!(!should_type_text("   "));
         assert!(!should_type_text("\t\n"));
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_config_path_with_xdg_config_home() {
+        let temp = tempdir().unwrap();
+        env::set_var("XDG_CONFIG_HOME", temp.path());
+
+        let config_path = get_config_path();
+
+        assert_eq!(config_path, temp.path().join("hammertalk/config.toml"));
+        env::remove_var("XDG_CONFIG_HOME");
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_config_path_fallback() {
+        env::remove_var("XDG_CONFIG_HOME");
+
+        let config_path = get_config_path();
+
+        let expected = dirs::home_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join(".config/hammertalk/config.toml");
+        assert_eq!(config_path, expected);
+    }
+
+    #[test]
+    #[serial]
+    fn test_load_config_with_engine() {
+        let temp = tempdir().unwrap();
+        let config_dir = temp.path().join("hammertalk");
+        fs::create_dir_all(&config_dir).unwrap();
+        fs::write(
+            config_dir.join("config.toml"),
+            "engine = \"whisper-tiny\"\n",
+        )
+        .unwrap();
+        env::set_var("XDG_CONFIG_HOME", temp.path());
+
+        let config = load_config();
+
+        assert_eq!(config.engine, Some("whisper-tiny".to_string()));
+        env::remove_var("XDG_CONFIG_HOME");
+    }
+
+    #[test]
+    #[serial]
+    fn test_load_config_missing_file() {
+        let temp = tempdir().unwrap();
+        env::set_var("XDG_CONFIG_HOME", temp.path());
+
+        let config = load_config();
+
+        assert!(config.engine.is_none());
+        env::remove_var("XDG_CONFIG_HOME");
+    }
+
+    #[test]
+    #[serial]
+    fn test_load_config_empty() {
+        let temp = tempdir().unwrap();
+        let config_dir = temp.path().join("hammertalk");
+        fs::create_dir_all(&config_dir).unwrap();
+        fs::write(config_dir.join("config.toml"), "").unwrap();
+        env::set_var("XDG_CONFIG_HOME", temp.path());
+
+        let config = load_config();
+
+        assert!(config.engine.is_none());
+        env::remove_var("XDG_CONFIG_HOME");
+    }
+
+    #[test]
+    #[serial]
+    fn test_parse_engine_choice_config_file() {
+        env::remove_var("HAMMERTALK_ENGINE");
+        let temp = tempdir().unwrap();
+        let config_dir = temp.path().join("hammertalk");
+        fs::create_dir_all(&config_dir).unwrap();
+        fs::write(
+            config_dir.join("config.toml"),
+            "engine = \"whisper-base\"\n",
+        )
+        .unwrap();
+        env::set_var("XDG_CONFIG_HOME", temp.path());
+
+        let choice = parse_engine_choice();
+
+        assert_eq!(choice, EngineChoice::WhisperBase);
+        env::remove_var("XDG_CONFIG_HOME");
     }
 
     #[test]
