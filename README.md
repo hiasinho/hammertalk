@@ -146,7 +146,6 @@ Style by state in `~/.config/waybar/style.css`:
 ```css
 #custom-hammertalk.recording { color: #ff5555; }
 #custom-hammertalk.transcribing { color: #f1fa8c; }
-#custom-hammertalk.idle { color: #50fa7b; }
 #custom-hammertalk.stopped { color: #6272a4; }
 ```
 
