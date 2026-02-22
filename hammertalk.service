@@ -7,6 +7,8 @@ ExecStart=%h/.local/bin/hammertalk
 Restart=on-failure
 RestartSec=5
 Environment=RUST_LOG=info
+# Uncomment to use a different engine (moonshine-tiny, whisper-tiny, whisper-base):
+#Environment=HAMMERTALK_ENGINE=whisper-base
 
 [Install]
 WantedBy=default.target

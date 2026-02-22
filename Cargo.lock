@@ -660,6 +660,7 @@ dependencies = [
  "ndarray",
  "ort",
  "serde",
+ "serde_json",
  "serial_test",
  "signal-hook",
  "tempfile",

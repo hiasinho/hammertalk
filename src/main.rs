@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -5,16 +6,15 @@ use std::time::Duration;
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::SampleFormat;
+use hammertalk::engine::Engine;
+use hammertalk::{
+    fatal_exit, format_waybar_json, get_model_path, is_daemon_running, needs_resample,
+    parse_engine_choice, read_state, remove_pid_file, remove_state_file, type_text, write_pid_file,
+    write_state, DaemonState, BUFFER_DRAIN_DELAY_MS, SAMPLE_RATE,
+};
 use log::{error, info, warn};
 use signal_hook::consts::{SIGINT, SIGTERM, SIGUSR1, SIGUSR2};
 use signal_hook::iterator::Signals;
-use transcribe_rs::engines::moonshine::{ModelVariant, MoonshineEngine, MoonshineModelParams};
-use transcribe_rs::TranscriptionEngine;
-
-use hammertalk::{
-    fatal_exit, get_model_path, needs_resample, remove_pid_file, type_text, write_pid_file,
-    BUFFER_DRAIN_DELAY_MS, SAMPLE_RATE,
-};
 
 static RECORDING: AtomicBool = AtomicBool::new(false);
 
@@ -92,7 +92,70 @@ fn record_audio(buffer: Arc<Mutex<Vec<f32>>>) -> Result<cpal::Stream, Box<dyn st
     Ok(stream)
 }
 
+fn run_status(follow: bool, json_format: bool) {
+    let get_current_state = || -> Option<DaemonState> {
+        if is_daemon_running() {
+            read_state()
+        } else {
+            None
+        }
+    };
+
+    if !follow {
+        let state = get_current_state();
+        if json_format {
+            println!("{}", format_waybar_json(state));
+        } else {
+            match state {
+                Some(s) => println!("{}", s.as_str()),
+                None => println!("stopped"),
+            }
+        }
+        return;
+    }
+
+    // Follow mode: poll every 200ms, emit on change
+    let mut last_state = None::<Option<DaemonState>>;
+    let stdout = std::io::stdout();
+
+    loop {
+        let state = get_current_state();
+
+        if last_state.as_ref() != Some(&state) {
+            last_state = Some(state);
+            let mut out = stdout.lock();
+            if json_format {
+                let _ = writeln!(out, "{}", format_waybar_json(state));
+            } else {
+                match state {
+                    Some(s) => {
+                        let _ = writeln!(out, "{}", s.as_str());
+                    }
+                    None => {
+                        let _ = writeln!(out, "stopped");
+                    }
+                }
+            }
+            let _ = out.flush();
+        }
+
+        thread::sleep(Duration::from_millis(200));
+    }
+}
+
 fn main() {
+    let args: Vec<String> = std::env::args().collect();
+
+    if args.get(1).map(|s| s.as_str()) == Some("status") {
+        let follow = args.iter().any(|a| a == "--follow");
+        let json_format = args.iter().any(|a| a == "json")
+            || args
+                .windows(2)
+                .any(|w| w[0] == "--format" && w[1] == "json");
+        run_status(follow, json_format);
+        return;
+    }
+
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
         .format_timestamp_millis()
         .init();
@@ -105,14 +168,12 @@ fn main() {
     }
 
     // Load model
-    let model_path = get_model_path();
-    info!("Loading Moonshine model from {:?}", model_path);
+    let engine_choice = parse_engine_choice();
+    let model_path = get_model_path(&engine_choice);
+    info!("Loading {} engine from {:?}", engine_choice, model_path);
 
-    let mut engine = MoonshineEngine::new();
-    if let Err(e) = engine.load_model_with_params(
-        &model_path,
-        MoonshineModelParams::variant(ModelVariant::Tiny),
-    ) {
+    let mut engine = Engine::new(&engine_choice);
+    if let Err(e) = engine.load(&engine_choice, &model_path) {
         fatal_exit(&format!("Failed to load model: {}", e));
     }
     info!("Model loaded successfully");
@@ -135,6 +196,7 @@ fn main() {
     let mut signals = Signals::new([SIGUSR1, SIGUSR2, SIGTERM, SIGINT]).unwrap();
 
     info!("Ready. Waiting for signals (USR1=start, USR2=stop)");
+    write_state(DaemonState::Idle);
 
     for sig in signals.forever() {
         match sig {
@@ -143,12 +205,14 @@ fn main() {
                     info!("Starting recording...");
                     audio_buffer.lock().unwrap().clear();
                     RECORDING.store(true, Ordering::SeqCst);
+                    write_state(DaemonState::Recording);
                 }
             }
             SIGUSR2 => {
                 if RECORDING.load(Ordering::SeqCst) {
                     info!("Stopping recording...");
                     RECORDING.store(false, Ordering::SeqCst);
+                    write_state(DaemonState::Transcribing);
 
                     // Small delay to ensure buffer is complete
                     thread::sleep(Duration::from_millis(BUFFER_DRAIN_DELAY_MS));
@@ -160,6 +224,7 @@ fn main() {
 
                     if samples.is_empty() {
                         warn!("No audio recorded");
+                        write_state(DaemonState::Idle);
                         continue;
                     }
 
@@ -169,7 +234,7 @@ fn main() {
                         samples.len() as f32 / SAMPLE_RATE as f32
                     );
 
-                    match engine.transcribe_samples(samples, None) {
+                    match engine.transcribe(samples) {
                         Ok(result) => {
                             let text = result.text.trim();
                             info!("Transcription: {}", text);
@@ -177,6 +242,7 @@ fn main() {
                         }
                         Err(e) => error!("Transcription failed: {}", e),
                     }
+                    write_state(DaemonState::Idle);
                 }
             }
             SIGTERM | SIGINT => {
@@ -188,6 +254,7 @@ fn main() {
     }
 
     drop(stream);
+    remove_state_file();
     remove_pid_file();
     info!("Goodbye!");
 }

@@ -126,6 +126,37 @@ binds {
 
 Hold the key, speak, release. Text appears at cursor.
 
+## Waybar
+
+Add a custom module to your waybar config:
+
+```jsonc
+"custom/hammertalk": {
+    "exec": "~/.local/bin/hammertalk status --follow --format json",
+    "return-type": "json",
+    "format": "{}",
+    "tooltip": true,
+    "on-click": "systemctl --user restart hammertalk",
+    "on-click-right": "systemctl --user stop hammertalk"
+}
+```
+
+Style by state in `~/.config/waybar/style.css`:
+
+```css
+#custom-hammertalk.recording { color: #ff5555; }
+#custom-hammertalk.transcribing { color: #f1fa8c; }
+#custom-hammertalk.idle { color: #50fa7b; }
+#custom-hammertalk.stopped { color: #6272a4; }
+```
+
+You can also check status from the command line:
+
+```bash
+hammertalk status                       # one-shot text output
+hammertalk status --follow --format json # continuous JSON stream
+```
+
 ## Requirements
 
 - ydotool (and ydotoold running)

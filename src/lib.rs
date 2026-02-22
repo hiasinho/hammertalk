@@ -12,6 +12,32 @@ pub mod engine;
 
 pub const SAMPLE_RATE: u32 = 16000;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum DaemonState {
+    Idle,
+    Recording,
+    Transcribing,
+}
+
+impl DaemonState {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            DaemonState::Idle => "idle",
+            DaemonState::Recording => "recording",
+            DaemonState::Transcribing => "transcribing",
+        }
+    }
+
+    pub fn parse_state(s: &str) -> Option<Self> {
+        match s.trim() {
+            "idle" => Some(DaemonState::Idle),
+            "recording" => Some(DaemonState::Recording),
+            "transcribing" => Some(DaemonState::Transcribing),
+            _ => None,
+        }
+    }
+}
+
 /// Tolerance for determining if resampling is needed (0.1% deviation from target)
 pub const RESAMPLE_TOLERANCE: f32 = 0.001;
 
@@ -149,6 +175,77 @@ pub fn remove_pid_file() {
     }
 }
 
+pub fn get_state_path() -> PathBuf {
+    std::env::var("XDG_RUNTIME_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("/tmp"))
+        .join("hammertalk.state")
+}
+
+pub fn write_state(state: DaemonState) {
+    let path = get_state_path();
+    if let Err(e) = fs::write(&path, state.as_str()) {
+        warn!("Failed to write state file: {}", e);
+    }
+}
+
+pub fn read_state() -> Option<DaemonState> {
+    let path = get_state_path();
+    fs::read_to_string(&path)
+        .ok()
+        .and_then(|s| DaemonState::parse_state(&s))
+}
+
+pub fn remove_state_file() {
+    let path = get_state_path();
+    if let Err(e) = fs::remove_file(&path) {
+        if e.kind() != std::io::ErrorKind::NotFound {
+            warn!("Failed to remove state file: {}", e);
+        }
+    }
+}
+
+pub fn is_daemon_running() -> bool {
+    let pid_path = get_pid_path();
+    match fs::read_to_string(&pid_path) {
+        Ok(contents) => {
+            if let Ok(pid) = contents.trim().parse::<u32>() {
+                PathBuf::from(format!("/proc/{}", pid)).exists()
+            } else {
+                false
+            }
+        }
+        Err(_) => false,
+    }
+}
+
+pub fn format_waybar_json(state: Option<DaemonState>) -> String {
+    let (text, alt, class, tooltip) = match state {
+        Some(DaemonState::Idle) => ("\u{f130}", "idle", "idle", "Hammertalk: ready"),
+        Some(DaemonState::Recording) => (
+            "\u{f192}",
+            "recording",
+            "recording",
+            "Hammertalk: recording",
+        ),
+        Some(DaemonState::Transcribing) => (
+            "\u{f0a30}",
+            "transcribing",
+            "transcribing",
+            "Hammertalk: transcribing",
+        ),
+        None => ("\u{f131}", "stopped", "stopped", "Hammertalk: stopped"),
+    };
+
+    serde_json::json!({
+        "text": text,
+        "alt": alt,
+        "class": class,
+        "tooltip": tooltip,
+    })
+    .to_string()
+}
+
 pub fn should_type_text(text: &str) -> bool {
     !text.trim().is_empty()
 }
@@ -180,6 +277,7 @@ pub fn needs_resample(source_rate: u32, target_rate: u32) -> bool {
 /// Exit with error after cleanup. Used for fatal initialization failures.
 pub fn fatal_exit(msg: &str) -> ! {
     log::error!("{}", msg);
+    remove_state_file();
     remove_pid_file();
     std::process::exit(1);
 }
@@ -480,6 +578,126 @@ mod tests {
 
         assert_eq!(choice, EngineChoice::WhisperBase);
         env::remove_var("XDG_CONFIG_HOME");
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_state_path_with_xdg_runtime_dir() {
+        let temp = tempdir().unwrap();
+        env::set_var("XDG_RUNTIME_DIR", temp.path());
+
+        let state_path = get_state_path();
+
+        assert_eq!(state_path, temp.path().join("hammertalk.state"));
+        env::remove_var("XDG_RUNTIME_DIR");
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_state_path_fallback() {
+        env::remove_var("XDG_RUNTIME_DIR");
+
+        let state_path = get_state_path();
+
+        assert_eq!(state_path, PathBuf::from("/tmp/hammertalk.state"));
+    }
+
+    #[test]
+    #[serial]
+    fn test_write_and_read_state() {
+        let temp = tempdir().unwrap();
+        env::set_var("XDG_RUNTIME_DIR", temp.path());
+
+        write_state(DaemonState::Idle);
+        assert_eq!(read_state(), Some(DaemonState::Idle));
+
+        write_state(DaemonState::Recording);
+        assert_eq!(read_state(), Some(DaemonState::Recording));
+
+        write_state(DaemonState::Transcribing);
+        assert_eq!(read_state(), Some(DaemonState::Transcribing));
+
+        env::remove_var("XDG_RUNTIME_DIR");
+    }
+
+    #[test]
+    #[serial]
+    fn test_read_state_missing_file() {
+        let temp = tempdir().unwrap();
+        env::set_var("XDG_RUNTIME_DIR", temp.path());
+
+        assert_eq!(read_state(), None);
+
+        env::remove_var("XDG_RUNTIME_DIR");
+    }
+
+    #[test]
+    #[serial]
+    fn test_remove_state_file() {
+        let temp = tempdir().unwrap();
+        env::set_var("XDG_RUNTIME_DIR", temp.path());
+
+        write_state(DaemonState::Idle);
+        assert!(get_state_path().exists());
+
+        remove_state_file();
+        assert!(!get_state_path().exists());
+
+        // Removing again should not error
+        remove_state_file();
+
+        env::remove_var("XDG_RUNTIME_DIR");
+    }
+
+    #[test]
+    fn test_format_waybar_json_idle() {
+        let json = format_waybar_json(Some(DaemonState::Idle));
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(v["alt"], "idle");
+        assert_eq!(v["class"], "idle");
+        assert_eq!(v["tooltip"], "Hammertalk: ready");
+        assert_eq!(v["text"], "\u{f130}");
+    }
+
+    #[test]
+    fn test_format_waybar_json_recording() {
+        let json = format_waybar_json(Some(DaemonState::Recording));
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(v["alt"], "recording");
+        assert_eq!(v["class"], "recording");
+        assert_eq!(v["tooltip"], "Hammertalk: recording");
+        assert_eq!(v["text"], "\u{f192}");
+    }
+
+    #[test]
+    fn test_format_waybar_json_transcribing() {
+        let json = format_waybar_json(Some(DaemonState::Transcribing));
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(v["alt"], "transcribing");
+        assert_eq!(v["class"], "transcribing");
+        assert_eq!(v["tooltip"], "Hammertalk: transcribing");
+        assert_eq!(v["text"], "\u{f0a30}");
+    }
+
+    #[test]
+    fn test_format_waybar_json_stopped() {
+        let json = format_waybar_json(None);
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(v["alt"], "stopped");
+        assert_eq!(v["class"], "stopped");
+        assert_eq!(v["tooltip"], "Hammertalk: stopped");
+        assert_eq!(v["text"], "\u{f131}");
+    }
+
+    #[test]
+    #[serial]
+    fn test_is_daemon_running_no_pid_file() {
+        let temp = tempdir().unwrap();
+        env::set_var("XDG_RUNTIME_DIR", temp.path());
+
+        assert!(!is_daemon_running());
+
+        env::remove_var("XDG_RUNTIME_DIR");
     }
 
     #[test]
