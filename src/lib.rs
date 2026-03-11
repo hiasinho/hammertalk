@@ -521,10 +521,7 @@ mod tests {
         assert_eq!(EngineChoice::WhisperBase.to_string(), "whisper-base");
         assert_eq!(EngineChoice::WhisperSmall.to_string(), "whisper-small");
         assert_eq!(EngineChoice::WhisperMedium.to_string(), "whisper-medium");
-        assert_eq!(
-            EngineChoice::WhisperLargeV3.to_string(),
-            "whisper-large-v3"
-        );
+        assert_eq!(EngineChoice::WhisperLargeV3.to_string(), "whisper-large-v3");
         assert_eq!(
             EngineChoice::WhisperLargeV3Turbo.to_string(),
             "whisper-large-v3-turbo"

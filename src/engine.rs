@@ -39,10 +39,7 @@ impl Engine {
                     EngineChoice::MoonshineBase => ModelVariant::Base,
                     _ => ModelVariant::Tiny,
                 };
-                engine.load_model_with_params(
-                    path,
-                    MoonshineModelParams::variant(variant),
-                )?;
+                engine.load_model_with_params(path, MoonshineModelParams::variant(variant))?;
             }
             Engine::Whisper(engine) => {
                 engine.load_model_with_params(path, WhisperModelParams::default())?;
