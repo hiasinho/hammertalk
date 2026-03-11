@@ -52,8 +52,13 @@ Hammertalk supports multiple transcription engines:
 | Engine | Model Size | Notes |
 |--------|-----------|-------|
 | `moonshine-tiny` | ~106MB | Default. Fast, good accuracy. |
+| `moonshine-base` | ~200MB | Better accuracy than tiny. |
 | `whisper-tiny` | ~75MB | Smaller model, decent accuracy. |
 | `whisper-base` | ~148MB | Better accuracy than tiny. |
+| `whisper-small` | ~488MB | Good balance of speed and accuracy. |
+| `whisper-medium` | ~1.5GB | High accuracy, slower. |
+| `whisper-large-v3` | ~3.1GB | Best accuracy, requires more resources. |
+| `whisper-large-v3-turbo` | ~1.6GB | Near large-v3 accuracy, faster. |
 
 Select an engine via CLI flag, environment variable, or config file (in priority order):
 
@@ -72,10 +77,30 @@ engine = "whisper-tiny"
 Download the model for your chosen engine:
 
 ```bash
-./download-model.sh whisper-tiny    # or whisper-base, moonshine-tiny, all
+./download-model.sh whisper-tiny    # or any engine name, or "all"
 ```
 
 For systemd, uncomment and set `HAMMERTALK_ENGINE` in the service file.
+
+## Language
+
+By default, Hammertalk transcribes English (`en`). You can set the language via CLI flag, environment variable, or config file (in priority order):
+
+```bash
+hammertalk --language de
+# or
+HAMMERTALK_LANGUAGE=fr hammertalk
+```
+
+Or in `~/.config/hammertalk/config.toml`:
+
+```toml
+language = "de"
+```
+
+Set `language = "auto"` for automatic language detection (works best with multilingual models like `whisper-large-v3`).
+
+> **Note:** Moonshine models only support English. The `--language` option is primarily useful with Whisper models.
 
 ## Usage
 

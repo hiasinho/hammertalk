@@ -47,18 +47,28 @@ pub const BUFFER_DRAIN_DELAY_MS: u64 = 50;
 #[derive(Debug, Clone, PartialEq)]
 pub enum EngineChoice {
     MoonshineTiny,
+    MoonshineBase,
     WhisperTiny,
     WhisperBase,
+    WhisperSmall,
+    WhisperMedium,
+    WhisperLargeV3,
+    WhisperLargeV3Turbo,
 }
 
 impl FromStr for EngineChoice {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "moonshine-tiny" | "moonshine_tiny" => Ok(EngineChoice::MoonshineTiny),
-            "whisper-tiny" | "whisper_tiny" => Ok(EngineChoice::WhisperTiny),
-            "whisper-base" | "whisper_base" => Ok(EngineChoice::WhisperBase),
+        match s.to_lowercase().replace('_', "-").as_str() {
+            "moonshine-tiny" => Ok(EngineChoice::MoonshineTiny),
+            "moonshine-base" => Ok(EngineChoice::MoonshineBase),
+            "whisper-tiny" => Ok(EngineChoice::WhisperTiny),
+            "whisper-base" => Ok(EngineChoice::WhisperBase),
+            "whisper-small" => Ok(EngineChoice::WhisperSmall),
+            "whisper-medium" => Ok(EngineChoice::WhisperMedium),
+            "whisper-large-v3" => Ok(EngineChoice::WhisperLargeV3),
+            "whisper-large-v3-turbo" => Ok(EngineChoice::WhisperLargeV3Turbo),
             _ => Err(format!("unknown engine: {}", s)),
         }
     }
@@ -68,8 +78,13 @@ impl fmt::Display for EngineChoice {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             EngineChoice::MoonshineTiny => write!(f, "moonshine-tiny"),
+            EngineChoice::MoonshineBase => write!(f, "moonshine-base"),
             EngineChoice::WhisperTiny => write!(f, "whisper-tiny"),
             EngineChoice::WhisperBase => write!(f, "whisper-base"),
+            EngineChoice::WhisperSmall => write!(f, "whisper-small"),
+            EngineChoice::WhisperMedium => write!(f, "whisper-medium"),
+            EngineChoice::WhisperLargeV3 => write!(f, "whisper-large-v3"),
+            EngineChoice::WhisperLargeV3Turbo => write!(f, "whisper-large-v3-turbo"),
         }
     }
 }
@@ -77,6 +92,7 @@ impl fmt::Display for EngineChoice {
 #[derive(Debug, Default, Deserialize)]
 pub struct Config {
     pub engine: Option<String>,
+    pub language: Option<String>,
 }
 
 pub fn get_config_path() -> PathBuf {
@@ -136,6 +152,41 @@ pub fn parse_engine_choice() -> EngineChoice {
     EngineChoice::MoonshineTiny
 }
 
+pub fn parse_language() -> Option<String> {
+    // Check CLI args: --language <lang>
+    let args: Vec<String> = std::env::args().collect();
+    if let Some(pos) = args.iter().position(|a| a == "--language") {
+        if let Some(lang) = args.get(pos + 1) {
+            let lang = lang.trim().to_lowercase();
+            if lang == "auto" {
+                return None;
+            }
+            return Some(lang);
+        }
+    }
+
+    // Fall back to env var
+    if let Ok(val) = std::env::var("HAMMERTALK_LANGUAGE") {
+        let val = val.trim().to_lowercase();
+        if val == "auto" {
+            return None;
+        }
+        return Some(val);
+    }
+
+    // Fall back to config file
+    let config = load_config();
+    if let Some(lang) = config.language {
+        let lang = lang.trim().to_lowercase();
+        if lang == "auto" {
+            return None;
+        }
+        return Some(lang);
+    }
+
+    Some("en".to_string())
+}
+
 pub fn get_pid_path() -> PathBuf {
     std::env::var("XDG_RUNTIME_DIR")
         .map(PathBuf::from)
@@ -155,8 +206,13 @@ pub fn get_model_path(engine: &EngineChoice) -> PathBuf {
 
     match engine {
         EngineChoice::MoonshineTiny => base.join("moonshine-tiny"),
+        EngineChoice::MoonshineBase => base.join("moonshine-base"),
         EngineChoice::WhisperTiny => base.join("ggml-tiny.en.bin"),
         EngineChoice::WhisperBase => base.join("ggml-base.en.bin"),
+        EngineChoice::WhisperSmall => base.join("ggml-small.en.bin"),
+        EngineChoice::WhisperMedium => base.join("ggml-medium.en.bin"),
+        EngineChoice::WhisperLargeV3 => base.join("ggml-large-v3.bin"),
+        EngineChoice::WhisperLargeV3Turbo => base.join("ggml-large-v3-turbo.bin"),
     }
 }
 
@@ -370,6 +426,37 @@ mod tests {
     }
 
     #[test]
+    #[serial]
+    fn test_get_model_path_moonshine_base() {
+        let temp = tempdir().unwrap();
+        env::set_var("XDG_DATA_HOME", temp.path());
+
+        let model_path = get_model_path(&EngineChoice::MoonshineBase);
+
+        assert_eq!(
+            model_path,
+            temp.path().join("hammertalk/models/moonshine-base")
+        );
+        env::remove_var("XDG_DATA_HOME");
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_model_path_whisper_large_v3_turbo() {
+        let temp = tempdir().unwrap();
+        env::set_var("XDG_DATA_HOME", temp.path());
+
+        let model_path = get_model_path(&EngineChoice::WhisperLargeV3Turbo);
+
+        assert_eq!(
+            model_path,
+            temp.path()
+                .join("hammertalk/models/ggml-large-v3-turbo.bin")
+        );
+        env::remove_var("XDG_DATA_HOME");
+    }
+
+    #[test]
     fn test_engine_choice_from_str() {
         assert_eq!(
             "moonshine-tiny".parse::<EngineChoice>().unwrap(),
@@ -378,6 +465,10 @@ mod tests {
         assert_eq!(
             "moonshine_tiny".parse::<EngineChoice>().unwrap(),
             EngineChoice::MoonshineTiny
+        );
+        assert_eq!(
+            "moonshine-base".parse::<EngineChoice>().unwrap(),
+            EngineChoice::MoonshineBase
         );
         assert_eq!(
             "whisper-tiny".parse::<EngineChoice>().unwrap(),
@@ -395,14 +486,46 @@ mod tests {
             "whisper_base".parse::<EngineChoice>().unwrap(),
             EngineChoice::WhisperBase
         );
+        assert_eq!(
+            "whisper-small".parse::<EngineChoice>().unwrap(),
+            EngineChoice::WhisperSmall
+        );
+        assert_eq!(
+            "whisper-medium".parse::<EngineChoice>().unwrap(),
+            EngineChoice::WhisperMedium
+        );
+        assert_eq!(
+            "whisper-large-v3".parse::<EngineChoice>().unwrap(),
+            EngineChoice::WhisperLargeV3
+        );
+        assert_eq!(
+            "whisper_large_v3".parse::<EngineChoice>().unwrap(),
+            EngineChoice::WhisperLargeV3
+        );
+        assert_eq!(
+            "whisper-large-v3-turbo".parse::<EngineChoice>().unwrap(),
+            EngineChoice::WhisperLargeV3Turbo
+        );
+        assert_eq!(
+            "whisper_large_v3_turbo".parse::<EngineChoice>().unwrap(),
+            EngineChoice::WhisperLargeV3Turbo
+        );
         assert!("unknown".parse::<EngineChoice>().is_err());
     }
 
     #[test]
     fn test_engine_choice_display() {
         assert_eq!(EngineChoice::MoonshineTiny.to_string(), "moonshine-tiny");
+        assert_eq!(EngineChoice::MoonshineBase.to_string(), "moonshine-base");
         assert_eq!(EngineChoice::WhisperTiny.to_string(), "whisper-tiny");
         assert_eq!(EngineChoice::WhisperBase.to_string(), "whisper-base");
+        assert_eq!(EngineChoice::WhisperSmall.to_string(), "whisper-small");
+        assert_eq!(EngineChoice::WhisperMedium.to_string(), "whisper-medium");
+        assert_eq!(EngineChoice::WhisperLargeV3.to_string(), "whisper-large-v3");
+        assert_eq!(
+            EngineChoice::WhisperLargeV3Turbo.to_string(),
+            "whisper-large-v3-turbo"
+        );
     }
 
     #[test]
@@ -414,6 +537,10 @@ mod tests {
         assert_eq!(
             "MOONSHINE-TINY".parse::<EngineChoice>().unwrap(),
             EngineChoice::MoonshineTiny
+        );
+        assert_eq!(
+            "WHISPER-LARGE-V3-TURBO".parse::<EngineChoice>().unwrap(),
+            EngineChoice::WhisperLargeV3Turbo
         );
     }
 

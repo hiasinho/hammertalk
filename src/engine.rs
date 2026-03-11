@@ -15,10 +15,15 @@ pub enum Engine {
 impl Engine {
     pub fn new(choice: &EngineChoice) -> Self {
         match choice {
-            EngineChoice::MoonshineTiny => Engine::Moonshine(Box::new(MoonshineEngine::new())),
-            EngineChoice::WhisperTiny | EngineChoice::WhisperBase => {
-                Engine::Whisper(WhisperEngine::new())
+            EngineChoice::MoonshineTiny | EngineChoice::MoonshineBase => {
+                Engine::Moonshine(Box::new(MoonshineEngine::new()))
             }
+            EngineChoice::WhisperTiny
+            | EngineChoice::WhisperBase
+            | EngineChoice::WhisperSmall
+            | EngineChoice::WhisperMedium
+            | EngineChoice::WhisperLargeV3
+            | EngineChoice::WhisperLargeV3Turbo => Engine::Whisper(WhisperEngine::new()),
         }
     }
 
@@ -30,10 +35,11 @@ impl Engine {
         info!("Loading {} engine from {:?}", choice, path);
         match self {
             Engine::Moonshine(engine) => {
-                engine.load_model_with_params(
-                    path,
-                    MoonshineModelParams::variant(ModelVariant::Tiny),
-                )?;
+                let variant = match choice {
+                    EngineChoice::MoonshineBase => ModelVariant::Base,
+                    _ => ModelVariant::Tiny,
+                };
+                engine.load_model_with_params(path, MoonshineModelParams::variant(variant))?;
             }
             Engine::Whisper(engine) => {
                 engine.load_model_with_params(path, WhisperModelParams::default())?;
@@ -45,12 +51,13 @@ impl Engine {
     pub fn transcribe(
         &mut self,
         samples: Vec<f32>,
+        language: Option<&str>,
     ) -> Result<TranscriptionResult, Box<dyn std::error::Error>> {
         match self {
             Engine::Moonshine(engine) => Ok(engine.transcribe_samples(samples, None)?),
             Engine::Whisper(engine) => {
                 let params = WhisperInferenceParams {
-                    language: Some("en".to_string()),
+                    language: language.map(|s| s.to_string()),
                     ..Default::default()
                 };
                 Ok(engine.transcribe_samples(samples, Some(params))?)
