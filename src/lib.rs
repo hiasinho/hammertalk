@@ -54,6 +54,7 @@ pub enum EngineChoice {
     WhisperMedium,
     WhisperLargeV3,
     WhisperLargeV3Turbo,
+    ParakeetTdtV3,
 }
 
 impl FromStr for EngineChoice {
@@ -69,6 +70,7 @@ impl FromStr for EngineChoice {
             "whisper-medium" => Ok(EngineChoice::WhisperMedium),
             "whisper-large-v3" => Ok(EngineChoice::WhisperLargeV3),
             "whisper-large-v3-turbo" => Ok(EngineChoice::WhisperLargeV3Turbo),
+            "parakeet-tdt-v3" => Ok(EngineChoice::ParakeetTdtV3),
             _ => Err(format!("unknown engine: {}", s)),
         }
     }
@@ -85,6 +87,7 @@ impl fmt::Display for EngineChoice {
             EngineChoice::WhisperMedium => write!(f, "whisper-medium"),
             EngineChoice::WhisperLargeV3 => write!(f, "whisper-large-v3"),
             EngineChoice::WhisperLargeV3Turbo => write!(f, "whisper-large-v3-turbo"),
+            EngineChoice::ParakeetTdtV3 => write!(f, "parakeet-tdt-v3"),
         }
     }
 }
@@ -186,7 +189,6 @@ pub fn parse_language() -> Option<String> {
 
     Some("en".to_string())
 }
-
 pub fn get_pid_path() -> PathBuf {
     std::env::var("XDG_RUNTIME_DIR")
         .map(PathBuf::from)
@@ -213,6 +215,7 @@ pub fn get_model_path(engine: &EngineChoice) -> PathBuf {
         EngineChoice::WhisperMedium => base.join("ggml-medium.en.bin"),
         EngineChoice::WhisperLargeV3 => base.join("ggml-large-v3.bin"),
         EngineChoice::WhisperLargeV3Turbo => base.join("ggml-large-v3-turbo.bin"),
+        EngineChoice::ParakeetTdtV3 => base.join("parakeet-tdt-v3"),
     }
 }
 
@@ -369,7 +372,7 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_get_model_path_with_xdg_data_home() {
+    fn test_get_model_path_moonshine_with_xdg_data_home() {
         let temp = tempdir().unwrap();
         env::set_var("XDG_DATA_HOME", temp.path());
 
@@ -378,6 +381,21 @@ mod tests {
         assert_eq!(
             model_path,
             temp.path().join("hammertalk/models/moonshine-tiny")
+        );
+        env::remove_var("XDG_DATA_HOME");
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_model_path_parakeet_with_xdg_data_home() {
+        let temp = tempdir().unwrap();
+        env::set_var("XDG_DATA_HOME", temp.path());
+
+        let model_path = get_model_path(&EngineChoice::ParakeetTdtV3);
+
+        assert_eq!(
+            model_path,
+            temp.path().join("hammertalk/models/parakeet-tdt-v3")
         );
         env::remove_var("XDG_DATA_HOME");
     }
@@ -510,6 +528,14 @@ mod tests {
             "whisper_large_v3_turbo".parse::<EngineChoice>().unwrap(),
             EngineChoice::WhisperLargeV3Turbo
         );
+        assert_eq!(
+            "parakeet-tdt-v3".parse::<EngineChoice>().unwrap(),
+            EngineChoice::ParakeetTdtV3
+        );
+        assert_eq!(
+            "parakeet_tdt_v3".parse::<EngineChoice>().unwrap(),
+            EngineChoice::ParakeetTdtV3
+        );
         assert!("unknown".parse::<EngineChoice>().is_err());
     }
 
@@ -526,6 +552,7 @@ mod tests {
             EngineChoice::WhisperLargeV3Turbo.to_string(),
             "whisper-large-v3-turbo"
         );
+        assert_eq!(EngineChoice::ParakeetTdtV3.to_string(), "parakeet-tdt-v3");
     }
 
     #[test]

@@ -2,6 +2,7 @@ use std::path::Path;
 
 use log::info;
 use transcribe_rs::engines::moonshine::{ModelVariant, MoonshineEngine, MoonshineModelParams};
+use transcribe_rs::engines::parakeet::{ParakeetEngine, ParakeetModelParams};
 use transcribe_rs::engines::whisper::{WhisperEngine, WhisperInferenceParams, WhisperModelParams};
 use transcribe_rs::{TranscriptionEngine, TranscriptionResult};
 
@@ -10,6 +11,7 @@ use crate::EngineChoice;
 pub enum Engine {
     Moonshine(Box<MoonshineEngine>),
     Whisper(WhisperEngine),
+    Parakeet(ParakeetEngine),
 }
 
 impl Engine {
@@ -24,6 +26,7 @@ impl Engine {
             | EngineChoice::WhisperMedium
             | EngineChoice::WhisperLargeV3
             | EngineChoice::WhisperLargeV3Turbo => Engine::Whisper(WhisperEngine::new()),
+            EngineChoice::ParakeetTdtV3 => Engine::Parakeet(ParakeetEngine::new()),
         }
     }
 
@@ -44,6 +47,9 @@ impl Engine {
             Engine::Whisper(engine) => {
                 engine.load_model_with_params(path, WhisperModelParams::default())?;
             }
+            Engine::Parakeet(engine) => {
+                engine.load_model_with_params(path, ParakeetModelParams::fp32())?;
+            }
         }
         Ok(())
     }
@@ -62,6 +68,7 @@ impl Engine {
                 };
                 Ok(engine.transcribe_samples(samples, Some(params))?)
             }
+            Engine::Parakeet(engine) => Ok(engine.transcribe_samples(samples, None)?),
         }
     }
 }
