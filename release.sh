@@ -79,8 +79,8 @@ if git clone ssh://aur@aur.archlinux.org/hammertalk-bin.git "$AUR_DIR/hammertalk
 cp aur-bin/* "$AUR_DIR/hammertalk-bin/"
 
 # Update version in PKGBUILD
-sed -i'' -e "s/^pkgver=.*/pkgver=$VERSION/" "$AUR_DIR/hammertalk-bin/PKGBUILD"
-sed -i'' -e "s/^pkgrel=.*/pkgrel=1/" "$AUR_DIR/hammertalk-bin/PKGBUILD"
+sed -i '' -e "s/^pkgver=.*/pkgver=$VERSION/" "$AUR_DIR/hammertalk-bin/PKGBUILD"
+sed -i '' -e "s/^pkgrel=.*/pkgrel=1/" "$AUR_DIR/hammertalk-bin/PKGBUILD"
 
 # Generate .SRCINFO (without makepkg, so this works on non-Arch systems)
 cd "$AUR_DIR/hammertalk-bin"
@@ -137,8 +137,8 @@ rm -f "$TARBALL_PATH"
 
 # Update formula
 cd "$TAP_DIR/homebrew-tap"
-sed -i'' -e "s|url \"https://github.com/hiasinho/hammertalk/archive/refs/tags/v.*\.tar\.gz\"|url \"$TARBALL_URL\"|" Formula/hammertalk.rb
-sed -i'' -e "s/sha256 \".*\"/sha256 \"$SHA256\"/" Formula/hammertalk.rb
+sed -i '' -e "s|url \"https://github.com/hiasinho/hammertalk/archive/refs/tags/v.*\.tar\.gz\"|url \"$TARBALL_URL\"|" Formula/hammertalk.rb
+sed -i '' -e "s/sha256 \".*\"/sha256 \"$SHA256\"/" Formula/hammertalk.rb
 
 git add -A
 git commit -m "Update hammertalk to v$VERSION"
