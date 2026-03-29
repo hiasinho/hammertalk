@@ -201,6 +201,23 @@ fn main() {
     // Set up signal handlers
     let mut signals = Signals::new([SIGUSR1, SIGUSR2, SIGTERM, SIGINT]).unwrap();
 
+    // Optionally start built-in hotkey listener (--hotkey "Cmd+Shift+T")
+    #[cfg(feature = "hotkey")]
+    {
+        use hammertalk::hotkey;
+        if let Some(hotkey_str) = hotkey::parse_hotkey_arg() {
+            if !hotkey::check_permissions() {
+                fatal_exit("Accessibility permission required for --hotkey");
+            }
+            let running = Arc::new(std::sync::atomic::AtomicBool::new(true));
+            let running_clone = Arc::clone(&running);
+            thread::spawn(move || {
+                hotkey::run_hotkey_listener(&hotkey_str, running_clone);
+            });
+            info!("Built-in hotkey listener active");
+        }
+    }
+
     info!("Ready. Waiting for signals (USR1=start, USR2=stop)");
     write_state(DaemonState::Idle);
 

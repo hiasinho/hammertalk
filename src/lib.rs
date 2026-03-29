@@ -2,6 +2,7 @@ use std::fmt;
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
+#[cfg(not(target_os = "macos"))]
 use std::process::Command;
 use std::str::FromStr;
 
@@ -9,6 +10,9 @@ use log::{debug, error, info, warn};
 use serde::Deserialize;
 
 pub mod engine;
+
+#[cfg(feature = "hotkey")]
+pub mod hotkey;
 
 pub const SAMPLE_RATE: u32 = 16000;
 
@@ -197,6 +201,14 @@ pub fn get_pid_path() -> PathBuf {
 }
 
 pub fn get_model_path(engine: &EngineChoice) -> PathBuf {
+    // Check CLI args: --model-path <path>
+    let args: Vec<String> = std::env::args().collect();
+    if let Some(pos) = args.iter().position(|a| a == "--model-path") {
+        if let Some(path) = args.get(pos + 1) {
+            return PathBuf::from(path);
+        }
+    }
+
     let base = std::env::var("XDG_DATA_HOME")
         .map(PathBuf::from)
         .unwrap_or_else(|_| {
@@ -269,7 +281,15 @@ pub fn is_daemon_running() -> bool {
     match fs::read_to_string(&pid_path) {
         Ok(contents) => {
             if let Ok(pid) = contents.trim().parse::<u32>() {
-                PathBuf::from(format!("/proc/{}", pid)).exists()
+                #[cfg(target_os = "macos")]
+                {
+                    // macOS has no /proc — use kill(pid, 0) to check if process exists
+                    unsafe { libc::kill(pid as i32, 0) == 0 }
+                }
+                #[cfg(not(target_os = "macos"))]
+                {
+                    PathBuf::from(format!("/proc/{}", pid)).exists()
+                }
             } else {
                 false
             }
@@ -309,6 +329,27 @@ pub fn should_type_text(text: &str) -> bool {
     !text.trim().is_empty()
 }
 
+#[cfg(target_os = "macos")]
+pub fn type_text(text: &str) {
+    if !should_type_text(text) {
+        warn!("Empty transcription, skipping");
+        return;
+    }
+
+    let text_with_space = format!("{} ", text);
+    info!("Typing: {}", text_with_space);
+
+    use enigo::{Enigo, Keyboard, Settings};
+    match Enigo::new(&Settings::default()) {
+        Ok(mut enigo) => match enigo.text(&text_with_space) {
+            Ok(()) => debug!("enigo text input succeeded"),
+            Err(e) => error!("enigo text input failed: {}", e),
+        },
+        Err(e) => error!("Failed to initialize enigo: {}", e),
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
 pub fn type_text(text: &str) {
     if !should_type_text(text) {
         warn!("Empty transcription, skipping");

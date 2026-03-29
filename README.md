@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/hiasinho/hammertalk/actions/workflows/ci.yml/badge.svg)](https://github.com/hiasinho/hammertalk/actions/workflows/ci.yml)
 
-Push-to-talk transcription daemon for Wayland (Sway, Hyprland, niri, COSMIC) with multiple engine support.
+Push-to-talk transcription daemon for Wayland (Sway, Hyprland, niri, COSMIC) and macOS with multiple engine support.
 
 ## Quick Install
 
@@ -182,15 +182,66 @@ hammertalk status                       # one-shot text output
 hammertalk status --follow --format json # continuous JSON stream
 ```
 
+## macOS
+
+### Install
+
+```bash
+git clone https://github.com/hiasinho/hammertalk
+cd hammertalk
+./install-macos.sh
+```
+
+Grant **Microphone** and **Accessibility** permissions in System Settings → Privacy & Security.
+
+### Run manually
+
+```bash
+hammertalk --hotkey "Cmd+Shift+T"
+```
+
+Hold the key, speak, release. Text appears at cursor.
+
+### launchd (recommended)
+
+```bash
+# Start
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.hammertalk.daemon.plist
+
+# Stop
+launchctl bootout gui/$(id -u)/com.hammertalk.daemon
+
+# Auto-start on login: set RunAtLoad to true in the plist
+```
+
+Configure your engine, model path, and hotkey in `~/Library/LaunchAgents/com.hammertalk.daemon.plist`.
+
+The `--model-path` flag lets you reuse models from other apps (e.g. Handy):
+```bash
+hammertalk --engine parakeet-tdt-v3 \
+  --model-path "$HOME/Library/Application Support/com.pais.handy/models/parakeet-tdt-0.6b-v3-int8" \
+  --hotkey "Cmd+Shift+T"
+```
+
 ## Requirements
 
+### Linux
 - ydotool (and ydotoold running)
 - PipeWire or PulseAudio
+
+### macOS
+- Microphone permission
+- Accessibility permission (for text input and built-in hotkey)
+- Built with `--features hotkey` for push-to-talk (or use an external hotkey tool)
 
 ## Logs
 
 ```bash
+# Linux
 journalctl --user -u hammertalk -f
+
+# macOS
+tail -f ~/Library/Logs/hammertalk.log
 ```
 
 ## Build from source

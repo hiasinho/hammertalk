@@ -23,11 +23,19 @@ case "$1" in
     stop)
         kill -USR2 "$PID"
         ;;
+    kill)
+        kill "$PID"
+        echo "hammertalk stopped (PID $PID)"
+        ;;
     status)
         echo "hammertalk running (PID $PID)"
         ;;
     *)
-        echo "Usage: hammertalk-ctl start|stop|status" >&2
+        echo "Usage: hammertalk-ctl start|stop|kill|status" >&2
+        echo "  start   - begin recording" >&2
+        echo "  stop    - stop recording and transcribe" >&2
+        echo "  kill    - shut down the daemon" >&2
+        echo "  status  - check if running" >&2
         exit 1
         ;;
 esac

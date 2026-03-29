@@ -48,7 +48,15 @@ impl Engine {
                 engine.load_model_with_params(path, WhisperModelParams::default())?;
             }
             Engine::Parakeet(engine) => {
-                engine.load_model_with_params(path, ParakeetModelParams::fp32())?;
+                // Auto-detect quantization: use int8 if int8 model files exist, else fp32
+                let int8_encoder = path.join("encoder-model.int8.onnx");
+                let params = if int8_encoder.exists() {
+                    info!("Detected int8 quantized Parakeet model");
+                    ParakeetModelParams::int8()
+                } else {
+                    ParakeetModelParams::fp32()
+                };
+                engine.load_model_with_params(path, params)?;
             }
         }
         Ok(())

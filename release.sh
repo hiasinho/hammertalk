@@ -82,9 +82,33 @@ cp aur-bin/* "$AUR_DIR/hammertalk-bin/"
 sed -i'' -e "s/^pkgver=.*/pkgver=$VERSION/" "$AUR_DIR/hammertalk-bin/PKGBUILD"
 sed -i'' -e "s/^pkgrel=.*/pkgrel=1/" "$AUR_DIR/hammertalk-bin/PKGBUILD"
 
-# Generate .SRCINFO
+# Generate .SRCINFO (without makepkg, so this works on non-Arch systems)
 cd "$AUR_DIR/hammertalk-bin"
-makepkg --printsrcinfo > .SRCINFO
+cat > .SRCINFO <<SRCINFO
+pkgbase = hammertalk-bin
+	pkgdesc = Push-to-talk transcription daemon for Wayland (Sway, Hyprland, niri, COSMIC)
+	pkgver = $VERSION
+	pkgrel = 1
+	url = https://github.com/hiasinho/hammertalk
+	install = hammertalk-bin.install
+	arch = x86_64
+	license = MIT
+	depends = ydotool
+	depends = gcc-libs
+	optdepends = pipewire: audio capture
+	optdepends = pulseaudio: audio capture (alternative)
+	provides = hammertalk
+	conflicts = hammertalk
+	conflicts = hammertalk-git
+	source = hammertalk-${VERSION}::https://github.com/hiasinho/hammertalk/releases/download/v${VERSION}/hammertalk
+	source = hammertalk-ctl-${VERSION}::https://github.com/hiasinho/hammertalk/releases/download/v${VERSION}/hammertalk-ctl
+	source = download-model.sh-${VERSION}::https://github.com/hiasinho/hammertalk/releases/download/v${VERSION}/download-model.sh
+	sha256sums = SKIP
+	sha256sums = SKIP
+	sha256sums = SKIP
+
+pkgname = hammertalk-bin
+SRCINFO
 
 # Commit and push
 git add -A
