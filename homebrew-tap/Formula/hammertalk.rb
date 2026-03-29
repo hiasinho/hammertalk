@@ -1,11 +1,12 @@
 class Hammertalk < Formula
   desc "Push-to-talk transcription daemon with multiple engine support"
   homepage "https://github.com/hiasinho/hammertalk"
-  url "https://github.com/hiasinho/hammertalk/archive/refs/tags/v1.1.1.tar.gz"
-  sha256 "PLACEHOLDER"
+  url "https://github.com/hiasinho/hammertalk/archive/refs/tags/v1.2.0.tar.gz"
+  sha256 "953bf0e466aff1c0bf150d14db8d7c3cef519528a44f0dd41a6b49e4a919b428"
   license "MIT"
   head "https://github.com/hiasinho/hammertalk.git", branch: "master"
 
+  depends_on "cmake" => :build
   depends_on "rust" => :build
 
   on_linux do
