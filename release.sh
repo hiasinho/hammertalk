@@ -75,7 +75,7 @@ info "Updating AUR hammertalk-bin..."
 AUR_DIR=$(mktemp -d)
 trap "rm -rf $AUR_DIR" EXIT
 
-git clone ssh://aur@aur.archlinux.org/hammertalk-bin.git "$AUR_DIR/hammertalk-bin"
+if git clone ssh://aur@aur.archlinux.org/hammertalk-bin.git "$AUR_DIR/hammertalk-bin" 2>/dev/null; then
 cp aur-bin/* "$AUR_DIR/hammertalk-bin/"
 
 # Update version in PKGBUILD
@@ -116,6 +116,9 @@ git commit -m "Update to v$VERSION"
 git push
 
 success "AUR hammertalk-bin updated"
+else
+    warn "Could not clone AUR repo (SSH key not available?). Skipping AUR update."
+fi
 
 # Update Homebrew tap
 info "Updating Homebrew tap..."
