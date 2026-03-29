@@ -42,7 +42,7 @@ info "Releasing v$VERSION..."
 
 # Update Cargo.toml
 info "Updating Cargo.toml..."
-sed -i "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
+sed -i'' -e "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
 
 # Build to update Cargo.lock
 cargo build --release
@@ -79,8 +79,8 @@ git clone ssh://aur@aur.archlinux.org/hammertalk-bin.git "$AUR_DIR/hammertalk-bi
 cp aur-bin/* "$AUR_DIR/hammertalk-bin/"
 
 # Update version in PKGBUILD
-sed -i "s/^pkgver=.*/pkgver=$VERSION/" "$AUR_DIR/hammertalk-bin/PKGBUILD"
-sed -i "s/^pkgrel=.*/pkgrel=1/" "$AUR_DIR/hammertalk-bin/PKGBUILD"
+sed -i'' -e "s/^pkgver=.*/pkgver=$VERSION/" "$AUR_DIR/hammertalk-bin/PKGBUILD"
+sed -i'' -e "s/^pkgrel=.*/pkgrel=1/" "$AUR_DIR/hammertalk-bin/PKGBUILD"
 
 # Generate .SRCINFO
 cd "$AUR_DIR/hammertalk-bin"
