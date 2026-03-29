@@ -59,6 +59,7 @@ Hammertalk supports multiple transcription engines:
 | `whisper-medium` | ~1.5GB | High accuracy, slower. |
 | `whisper-large-v3` | ~3.1GB | Best accuracy, requires more resources. |
 | `whisper-large-v3-turbo` | ~1.6GB | Near large-v3 accuracy, faster. |
+| `parakeet-tdt-v3` | ~2.4GB | NVIDIA NeMo, high accuracy, 25 languages. |
 
 Select an engine via CLI flag, environment variable, or config file (in priority order):
 
