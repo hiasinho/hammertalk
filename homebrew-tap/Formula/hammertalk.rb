@@ -52,7 +52,7 @@ class Hammertalk < Formula
           • Microphone
           • Accessibility (for text input and hotkey)
 
-        Run with built-in hotkey:
+        Default hotkey: Fn (globe key). Override with:
           hammertalk --hotkey "Cmd+Shift+T"
 
         To start as a background service:
