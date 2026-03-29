@@ -68,10 +68,10 @@ sed -e "s|__HAMMERTALK_BIN__|$BIN_DIR/hammertalk|g" \
 success "LaunchAgent installed"
 
 # Download model if not present
-MODEL_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/hammertalk/models/moonshine-tiny"
-if [[ ! -f "$MODEL_DIR/encoder_model.onnx" ]]; then
-    info "Downloading Moonshine model (~106MB)..."
-    "$SCRIPT_DIR/download-model.sh"
+MODEL_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/hammertalk/models/parakeet-tdt-v3-int8"
+if [[ ! -f "$MODEL_DIR/encoder-model.int8.onnx" ]]; then
+    info "Downloading Parakeet TDT v3 int8 model (~640MB)..."
+    "$SCRIPT_DIR/download-model.sh" parakeet-tdt-v3-int8
     success "Model downloaded"
 else
     success "Model already present at $MODEL_DIR"
@@ -98,8 +98,9 @@ echo "    • Microphone → Terminal (or your terminal app)"
 echo "    • Accessibility → Terminal (or your terminal app)"
 echo ""
 echo "  ${BLUE}Push-to-talk (built-in hotkey):${NC}"
-echo "    hammertalk --hotkey 'Cmd+Shift+T'"
-echo "    (or add to launchd plist ProgramArguments)"
+echo "    Default hotkey: Fn (globe key)"
+echo "    Override: hammertalk --hotkey 'Cmd+Shift+T'"
+echo "    Disable:  hammertalk --hotkey none"
 echo ""
 echo "  ${BLUE}Alternative keybinding tools:${NC}"
 echo "    • Karabiner-Elements: bind a key to run hammertalk-ctl start/stop"

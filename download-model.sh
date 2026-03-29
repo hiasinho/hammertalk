@@ -4,8 +4,9 @@
 # Usage: ./download-model.sh [ENGINE]
 #   Engines: moonshine-tiny, moonshine-base,
 #            whisper-tiny, whisper-base, whisper-small, whisper-medium,
-#            whisper-large-v3, whisper-large-v3-turbo, parakeet-tdt-v3, all
-# Default: moonshine-tiny
+#            whisper-large-v3, whisper-large-v3-turbo,
+#            parakeet-tdt-v3, parakeet-tdt-v3-int8, all
+# Default: parakeet-tdt-v3-int8
 
 set -e
 
@@ -129,7 +130,32 @@ download_parakeet_tdt_v3() {
     ls -lh "$model_dir"
 }
 
-ENGINE="${1:-moonshine-tiny}"
+download_parakeet_tdt_v3_int8() {
+    local model_dir="$MODELS_DIR/parakeet-tdt-v3-int8"
+    mkdir -p "$model_dir"
+    cd "$model_dir"
+
+    local base_url="https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main"
+
+    echo "Downloading Parakeet TDT v3 int8 model to $model_dir..."
+
+    for file in encoder-model.int8.onnx decoder_joint-model.int8.onnx nemo128.onnx vocab.txt config.json; do
+        if [[ -f "$file" ]]; then
+            echo "  $file already exists, skipping"
+        else
+            echo "  Downloading $file..."
+            curl -fL "$base_url/$file" -o "$file" || {
+                echo "Failed to download $file" >&2
+                exit 1
+            }
+        fi
+    done
+
+    echo "Done! Model files:"
+    ls -lh "$model_dir"
+}
+
+ENGINE="${1:-parakeet-tdt-v3-int8}"
 
 case "$ENGINE" in
     moonshine-tiny)
@@ -159,6 +185,9 @@ case "$ENGINE" in
     parakeet-tdt-v3)
         download_parakeet_tdt_v3
         ;;
+    parakeet-tdt-v3-int8)
+        download_parakeet_tdt_v3_int8
+        ;;
     all)
         download_moonshine_tiny
         download_moonshine_base
@@ -169,10 +198,11 @@ case "$ENGINE" in
         download_whisper_model "large-v3" "ggml-large-v3.bin"
         download_whisper_model "large-v3-turbo" "ggml-large-v3-turbo.bin"
         download_parakeet_tdt_v3
+        download_parakeet_tdt_v3_int8
         ;;
     *)
         echo "Unknown engine: $ENGINE" >&2
-        echo "Usage: $0 [moonshine-tiny|moonshine-base|whisper-tiny|whisper-base|whisper-small|whisper-medium|whisper-large-v3|whisper-large-v3-turbo|parakeet-tdt-v3|all]" >&2
+        echo "Usage: $0 [moonshine-tiny|moonshine-base|whisper-tiny|whisper-base|whisper-small|whisper-medium|whisper-large-v3|whisper-large-v3-turbo|parakeet-tdt-v3|parakeet-tdt-v3-int8|all]" >&2
         exit 1
         ;;
 esac

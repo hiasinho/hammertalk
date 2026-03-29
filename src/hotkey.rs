@@ -4,12 +4,46 @@ use std::sync::Arc;
 use handy_keys::{Hotkey, HotkeyManager, HotkeyState};
 use log::{error, info, warn};
 
-/// Parse the --hotkey argument from CLI args.
-/// Returns None if no --hotkey flag is present.
+use crate::load_config;
+
+/// Parse the hotkey from CLI args, env var, config file, or platform default.
+/// Priority: --hotkey flag > HAMMERTALK_HOTKEY env > config file > platform default.
+/// On macOS the default is "Fn" (globe key). On Linux there is no default
+/// (users bind keys in their compositor via hammertalk-ctl).
+/// Pass --hotkey none to disable the hotkey.
 pub fn parse_hotkey_arg() -> Option<String> {
     let args: Vec<String> = std::env::args().collect();
+
+    // CLI arg takes priority
     if let Some(pos) = args.iter().position(|a| a == "--hotkey") {
-        args.get(pos + 1).cloned()
+        if let Some(val) = args.get(pos + 1) {
+            if val.eq_ignore_ascii_case("none") {
+                return None;
+            }
+            return Some(val.clone());
+        }
+    }
+
+    // Env var
+    if let Ok(val) = std::env::var("HAMMERTALK_HOTKEY") {
+        if val.eq_ignore_ascii_case("none") {
+            return None;
+        }
+        return Some(val);
+    }
+
+    // Config file
+    let config = load_config();
+    if let Some(hotkey) = config.hotkey {
+        if hotkey.eq_ignore_ascii_case("none") {
+            return None;
+        }
+        return Some(hotkey);
+    }
+
+    // Platform default: Fn on macOS, no default on Linux
+    if cfg!(target_os = "macos") {
+        Some("Fn".to_string())
     } else {
         None
     }

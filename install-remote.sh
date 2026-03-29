@@ -14,7 +14,7 @@ set -e
 REPO_URL="https://github.com/hiasinho/hammertalk"
 INSTALL_DIR="$HOME/.local/bin"
 SERVICE_DIR="$HOME/.config/systemd/user"
-MODEL_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/hammertalk/models/moonshine-tiny"
+MODEL_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/hammertalk/models/parakeet-tdt-v3-int8"
 
 # Colors for output
 RED='\033[0;31m'
@@ -35,7 +35,7 @@ echo ""
 echo "  ╦ ╦┌─┐┌┬┐┌┬┐┌─┐┬─┐┌┬┐┌─┐┬  ┬┌─"
 echo "  ╠═╣├─┤││││││├┤ ├┬┘ │ ├─┤│  ├┴┐"
 echo "  ╩ ╩┴ ┴┴ ┴┴ ┴└─┘┴└─ ┴ ┴ ┴┴─┘┴ ┴"
-echo "  Push-to-talk for Wayland"
+echo "  Push-to-talk transcription"
 echo ""
 
 # Check for required tools
@@ -121,24 +121,18 @@ systemctl --user daemon-reload
 success "Systemd service installed"
 
 # Download model
-info "Downloading Moonshine model (~106MB)..."
+info "Downloading Parakeet TDT v3 int8 model (~640MB)..."
 mkdir -p "$MODEL_DIR"
 cd "$MODEL_DIR"
 
-BASE_URL="https://huggingface.co/UsefulSensors/moonshine/resolve/main/onnx/merged/tiny"
-TOKENIZER_URL="https://huggingface.co/UsefulSensors/moonshine-tiny/resolve/main/tokenizer.json"
+BASE_URL="https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main"
 
-for file in encoder_model.onnx decoder_model_merged.onnx; do
+for file in encoder-model.int8.onnx decoder_joint-model.int8.onnx nemo128.onnx vocab.txt config.json; do
     if [[ ! -f "$file" ]]; then
         echo "    Downloading $file..."
-        curl -fL "$BASE_URL/float/$file" -o "$file"
+        curl -fL "$BASE_URL/$file" -o "$file"
     fi
 done
-
-if [[ ! -f "tokenizer.json" ]]; then
-    echo "    Downloading tokenizer.json..."
-    curl -fL "$TOKENIZER_URL" -o "tokenizer.json"
-fi
 success "Model downloaded"
 
 # Restart service if it was running

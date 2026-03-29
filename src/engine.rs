@@ -26,7 +26,9 @@ impl Engine {
             | EngineChoice::WhisperMedium
             | EngineChoice::WhisperLargeV3
             | EngineChoice::WhisperLargeV3Turbo => Engine::Whisper(WhisperEngine::new()),
-            EngineChoice::ParakeetTdtV3 => Engine::Parakeet(ParakeetEngine::new()),
+            EngineChoice::ParakeetTdtV3 | EngineChoice::ParakeetTdtV3Int8 => {
+                Engine::Parakeet(ParakeetEngine::new())
+            }
         }
     }
 

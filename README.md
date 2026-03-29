@@ -10,6 +10,16 @@ Push-to-talk transcription daemon for Wayland (Sway, Hyprland, niri, COSMIC) and
 
 ## Quick Install
 
+### macOS (Homebrew)
+
+```bash
+brew tap hiasinho/tap https://github.com/hiasinho/homebrew-tap
+brew install hammertalk
+hammertalk-download-model  # downloads default model (~640MB)
+```
+
+### Linux
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/hiasinho/hammertalk/master/install-remote.sh | sh
 ```
@@ -33,8 +43,9 @@ After installing, download the model:
 ```bash
 git clone https://github.com/hiasinho/hammertalk
 cd hammertalk
-./download-model.sh   # Download model (~106MB)
-./install.sh          # Build and install
+./download-model.sh   # Download default model (~640MB)
+./install.sh          # Build and install (Linux)
+./install-macos.sh    # Build and install (macOS)
 ```
 
 ## Update
@@ -51,7 +62,7 @@ Hammertalk supports multiple transcription engines:
 
 | Engine | Model Size | Notes |
 |--------|-----------|-------|
-| `moonshine-tiny` | ~106MB | Default. Fast, good accuracy. |
+| `moonshine-tiny` | ~106MB | Fast, good accuracy. English only. |
 | `moonshine-base` | ~200MB | Better accuracy than tiny. |
 | `whisper-tiny` | ~75MB | Smaller model, decent accuracy. |
 | `whisper-base` | ~148MB | Better accuracy than tiny. |
@@ -60,6 +71,7 @@ Hammertalk supports multiple transcription engines:
 | `whisper-large-v3` | ~3.1GB | Best accuracy, requires more resources. |
 | `whisper-large-v3-turbo` | ~1.6GB | Near large-v3 accuracy, faster. |
 | `parakeet-tdt-v3` | ~2.4GB | NVIDIA NeMo, high accuracy, 25 languages. |
+| `parakeet-tdt-v3-int8` | ~640MB | Default. Int8 quantized. Smaller and faster, near-full accuracy. |
 
 Select an engine via CLI flag, environment variable, or config file (in priority order):
 
@@ -78,7 +90,9 @@ engine = "whisper-tiny"
 Download the model for your chosen engine:
 
 ```bash
-./download-model.sh whisper-tiny    # or any engine name, or "all"
+./download-model.sh                        # default: parakeet-tdt-v3-int8
+./download-model.sh whisper-tiny           # or any engine name
+./download-model.sh all                    # download all models
 ```
 
 For systemd, uncomment and set `HAMMERTALK_ENGINE` in the service file.
@@ -197,7 +211,22 @@ Grant **Microphone** and **Accessibility** permissions in System Settings → Pr
 ### Run manually
 
 ```bash
+hammertalk
+```
+
+The default hotkey is `Fn`. Override it with:
+```bash
 hammertalk --hotkey "Cmd+Shift+T"
+```
+
+Disable the built-in hotkey (signal-only mode):
+```bash
+hammertalk --hotkey none
+```
+
+Or set it in `~/.config/hammertalk/config.toml`:
+```toml
+hotkey = "Cmd+Shift+T"
 ```
 
 Hold the key, speak, release. Text appears at cursor.
@@ -216,11 +245,10 @@ launchctl bootout gui/$(id -u)/com.hammertalk.daemon
 
 Configure your engine, model path, and hotkey in `~/Library/LaunchAgents/com.hammertalk.daemon.plist`.
 
-The `--model-path` flag lets you reuse models from other apps (e.g. Handy):
+Use `--model-path` to override the default model location:
 ```bash
 hammertalk --engine parakeet-tdt-v3 \
-  --model-path "$HOME/Library/Application Support/com.pais.handy/models/parakeet-tdt-0.6b-v3-int8" \
-  --hotkey "Cmd+Shift+T"
+  --model-path /path/to/your/model
 ```
 
 ## Requirements
@@ -232,7 +260,7 @@ hammertalk --engine parakeet-tdt-v3 \
 ### macOS
 - Microphone permission
 - Accessibility permission (for text input and built-in hotkey)
-- Built with `--features hotkey` for push-to-talk (or use an external hotkey tool)
+- Built with `--features hotkey` for push-to-talk (default hotkey: `Fn`)
 
 ## Logs
 

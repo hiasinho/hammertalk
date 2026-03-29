@@ -86,7 +86,7 @@ sed -i'' -e "s/^pkgrel=.*/pkgrel=1/" "$AUR_DIR/hammertalk-bin/PKGBUILD"
 cd "$AUR_DIR/hammertalk-bin"
 cat > .SRCINFO <<SRCINFO
 pkgbase = hammertalk-bin
-	pkgdesc = Push-to-talk transcription daemon for Wayland (Sway, Hyprland, niri, COSMIC)
+	pkgdesc = Push-to-talk transcription daemon for Wayland and macOS
 	pkgver = $VERSION
 	pkgrel = 1
 	url = https://github.com/hiasinho/hammertalk
@@ -117,8 +117,35 @@ git push
 
 success "AUR hammertalk-bin updated"
 
+# Update Homebrew tap
+info "Updating Homebrew tap..."
+
+TAP_DIR=$(mktemp -d)
+trap "rm -rf $AUR_DIR $TAP_DIR" EXIT
+
+git clone https://github.com/hiasinho/homebrew-tap.git "$TAP_DIR/homebrew-tap"
+
+# Download the source tarball and compute SHA256
+TARBALL_URL="https://github.com/hiasinho/hammertalk/archive/refs/tags/v${VERSION}.tar.gz"
+TARBALL_PATH=$(mktemp)
+curl -fSL "$TARBALL_URL" -o "$TARBALL_PATH"
+SHA256=$(shasum -a 256 "$TARBALL_PATH" | awk '{print $1}')
+rm -f "$TARBALL_PATH"
+
+# Update formula
+cd "$TAP_DIR/homebrew-tap"
+sed -i'' -e "s|url \"https://github.com/hiasinho/hammertalk/archive/refs/tags/v.*\.tar\.gz\"|url \"$TARBALL_URL\"|" Formula/hammertalk.rb
+sed -i'' -e "s/sha256 \".*\"/sha256 \"$SHA256\"/" Formula/hammertalk.rb
+
+git add -A
+git commit -m "Update hammertalk to v$VERSION"
+git push
+
+success "Homebrew tap updated"
+
 echo ""
 success "Release v$VERSION complete!"
 echo ""
-echo "  GitHub: https://github.com/hiasinho/hammertalk/releases/tag/v$VERSION"
-echo "  AUR:    https://aur.archlinux.org/packages/hammertalk-bin"
+echo "  GitHub:   https://github.com/hiasinho/hammertalk/releases/tag/v$VERSION"
+echo "  AUR:      https://aur.archlinux.org/packages/hammertalk-bin"
+echo "  Homebrew: brew upgrade hammertalk"

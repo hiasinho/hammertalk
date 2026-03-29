@@ -59,6 +59,7 @@ pub enum EngineChoice {
     WhisperLargeV3,
     WhisperLargeV3Turbo,
     ParakeetTdtV3,
+    ParakeetTdtV3Int8,
 }
 
 impl FromStr for EngineChoice {
@@ -75,6 +76,7 @@ impl FromStr for EngineChoice {
             "whisper-large-v3" => Ok(EngineChoice::WhisperLargeV3),
             "whisper-large-v3-turbo" => Ok(EngineChoice::WhisperLargeV3Turbo),
             "parakeet-tdt-v3" => Ok(EngineChoice::ParakeetTdtV3),
+            "parakeet-tdt-v3-int8" => Ok(EngineChoice::ParakeetTdtV3Int8),
             _ => Err(format!("unknown engine: {}", s)),
         }
     }
@@ -92,6 +94,7 @@ impl fmt::Display for EngineChoice {
             EngineChoice::WhisperLargeV3 => write!(f, "whisper-large-v3"),
             EngineChoice::WhisperLargeV3Turbo => write!(f, "whisper-large-v3-turbo"),
             EngineChoice::ParakeetTdtV3 => write!(f, "parakeet-tdt-v3"),
+            EngineChoice::ParakeetTdtV3Int8 => write!(f, "parakeet-tdt-v3-int8"),
         }
     }
 }
@@ -100,6 +103,7 @@ impl fmt::Display for EngineChoice {
 pub struct Config {
     pub engine: Option<String>,
     pub language: Option<String>,
+    pub hotkey: Option<String>,
 }
 
 pub fn get_config_path() -> PathBuf {
@@ -156,7 +160,7 @@ pub fn parse_engine_choice() -> EngineChoice {
         }
     }
 
-    EngineChoice::MoonshineTiny
+    EngineChoice::ParakeetTdtV3Int8
 }
 
 pub fn parse_language() -> Option<String> {
@@ -228,6 +232,7 @@ pub fn get_model_path(engine: &EngineChoice) -> PathBuf {
         EngineChoice::WhisperLargeV3 => base.join("ggml-large-v3.bin"),
         EngineChoice::WhisperLargeV3Turbo => base.join("ggml-large-v3-turbo.bin"),
         EngineChoice::ParakeetTdtV3 => base.join("parakeet-tdt-v3"),
+        EngineChoice::ParakeetTdtV3Int8 => base.join("parakeet-tdt-v3-int8"),
     }
 }
 
@@ -617,7 +622,7 @@ mod tests {
     fn test_parse_engine_choice_default() {
         env::remove_var("HAMMERTALK_ENGINE");
         let choice = parse_engine_choice();
-        assert_eq!(choice, EngineChoice::MoonshineTiny);
+        assert_eq!(choice, EngineChoice::ParakeetTdtV3Int8);
     }
 
     #[test]
@@ -634,7 +639,7 @@ mod tests {
     fn test_parse_engine_choice_invalid_env_var() {
         env::set_var("HAMMERTALK_ENGINE", "invalid-engine");
         let choice = parse_engine_choice();
-        assert_eq!(choice, EngineChoice::MoonshineTiny);
+        assert_eq!(choice, EngineChoice::ParakeetTdtV3Int8);
         env::remove_var("HAMMERTALK_ENGINE");
     }
 
